@@ -1,0 +1,122 @@
+
+import { Lodge } from './types';
+
+export const INITIAL_LODGES: Lodge[] = [
+  {
+    "id": "336711",
+    "name": "Amakhala Bush Lodge",
+    "slug": "bush-lodge",
+    "category": "5-Star Luxury",
+    "region": "Amakhala",
+    "description": "Luxury tented suites with private plunge pools and views over the reserve.",
+    "commissionRate": 0.10,
+    "bookingId": "336711",
+    "maxCapacity": 2,
+    "nightsbridge_id": "11586",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "415664",
+    "name": "HillsNek Safari Camp",
+    "slug": "hillsnek",
+    "category": "Luxury Tented",
+    "region": "Amakhala",
+    "description": "An intimate, family-run camp set on the banks of the Bushman's River.",
+    "commissionRate": 0.10,
+    "bookingId": "415664",
+    "maxCapacity": 3,
+    "nightsbridge_id": "14692",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "336717",
+    "name": "Woodbury Lodge",
+    "slug": "woodbury-lodge",
+    "category": "Family Friendly",
+    "region": "Amakhala",
+    "description": "Spectacular views over the Bushman's River valley, ideal for families.",
+    "commissionRate": 0.10,
+    "bookingId": "336717",
+    "maxCapacity": 4,
+    "nightsbridge_id": "14690",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "1162608",
+    "name": "Quatermain's 1920's Safari Camp",
+    "slug": "quatermains",
+    "category": "Classic Expedition",
+    "region": "Amakhala",
+    "description": "A rustic, authentic colonial-style tented camp offering a true bush experience.",
+    "commissionRate": 0.10,
+    "bookingId": "1162608",
+    "maxCapacity": 2,
+    "nightsbridge_id": "17176",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "336709",
+    "name": "Bukela Game Lodge",
+    "slug": "bukela",
+    "category": "Luxury Suites",
+    "region": "Amakhala",
+    "description": "Secluded luxury suites designed for romance and privacy.",
+    "commissionRate": 0.10,
+    "bookingId": "336709",
+    "maxCapacity": 2,
+    "nightsbridge_id": "bukelagamelodge",
+    "bookingProvider": "ProfitRoom"
+  },
+  {
+    "id": "336715",
+    "name": "Hlosi Game Lodge",
+    "slug": "hlosi",
+    "category": "Family Luxury",
+    "region": "Amakhala",
+    "description": "Large suites and specialized kids' programs in a quiet corner of the reserve.",
+    "commissionRate": 0.10,
+    "bookingId": "336715",
+    "maxCapacity": 5,
+    "nightsbridge_id": "hlosigamelodge",
+    "bookingProvider": "ProfitRoom"
+  },
+  {
+    "id": "336718",
+    "name": "Woodbury Tented Camp",
+    "slug": "woodbury-tented",
+    "category": "Authentic Tented",
+    "region": "Amakhala",
+    "description": "One of the oldest and most popular tented camps in the Eastern Cape.",
+    "commissionRate": 0.10,
+    "bookingId": "336718",
+    "maxCapacity": 2,
+    "nightsbridge_id": "14691",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "336716",
+    "name": "Safari Lodge (Amakhala)",
+    "slug": "safari-lodge",
+    "category": "Luxury Tented",
+    "region": "Amakhala",
+    "description": "Intimate luxury with traditional safari aesthetics and thatched roofs.",
+    "commissionRate": 0.10,
+    "bookingId": "336716",
+    "maxCapacity": 2,
+    "nightsbridge_id": "11586",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "415666",
+    "name": "Reed Valley Inn",
+    "slug": "reed-valley",
+    "category": "Heritage",
+    "region": "Amakhala",
+    "description": "Historic farmstead charm with personalized service and country hospitality.",
+    "commissionRate": 0.10,
+    "bookingId": "415666",
+    "maxCapacity": 4,
+    "nightsbridge_id": "PENDING",
+    "bookingProvider": "NightsBridge"
+  }
+];

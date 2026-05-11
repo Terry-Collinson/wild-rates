@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 142 28% 10%;
+    --foreground: 0 0% 100%;
+    --card: 142 30% 8%;
+    --card-foreground: 0 0% 100%;
+    --popover: 142 30% 5%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 46 65% 52%;
+    --primary-foreground: 142 28% 5%;
+    --secondary: 142 20% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 142 20% 12%;
+    --muted-foreground: 46 20% 60%;
+    --accent: 46 65% 52%;
+    --accent-foreground: 142 28% 5%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 142 20% 15%;
+    --input: 142 20% 15%;
+    --ring: 46 65% 52%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
+}
+
+/* Hide the Next.js Dev Tools button specifically */
+[data-nextjs-dev-tools-button] {
+  display: none !important;
+}
+
+.safari-gradient {
+  background: linear-gradient(rgba(10, 20, 15, 0.4), rgba(10, 20, 15, 0.6)), url('/backgrounds/hillsneck.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.glass-card {
+  @apply bg-white/5 backdrop-blur-md border border-white/10;
+}
+
+.gold-shimmer {
+  background: linear-gradient(90deg, #D4AF37 0%, #F1D37E 50%, #D4AF37 100%);
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+  -webkit-background-clip: text;
+  -webkit-fill-color: transparent;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hillsneck",
+      "description": "HillsNek Safari Camp Luxury Tent",
+      "imageUrl": "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?q=80&w=1200&auto=format&fit=crop",
+      "imageHint": "safari luxury"
+    },
+    {
+      "id": "bushlodge",
+      "description": "Bush Lodge Safari Suite",
+      "imageUrl": "https://images.unsplash.com/photo-1493246507139-91e8bef99c17?q=80&w=1200&auto=format&fit=crop",
+      "imageHint": "safari lodge"
+    },
+    {
+      "id": "woodbury",
+      "description": "Woodbury Lodge Overlooking Reserve",
+      "imageUrl": "https://images.unsplash.com/photo-1547407139-3c921a66005c?q=80&w=1200&auto=format&fit=crop",
+      "imageHint": "safari wildlife"
+    },
+    {
+      "id": "hero-safari",
+      "description": "Amakhala Reserve Sunset",
+      "imageUrl": "/backgrounds/hillsneck.jpg",
+      "imageHint": "safari sunset"
+    },
+    {
+      "id": "app-logo-main",
+      "description": "WildRates Main Logo",
+      "imageUrl": "/icons/icon-192x192.png",
+      "imageHint": "nature logo"
+    },
+    {
+      "id": "app-logo-icon",
+      "description": "WildRates Icon Logo",
+      "imageUrl": "/icons/icon-192x192.png",
+      "imageHint": "nature icon"
+    },
+    {
+      "id": "favicon",
+      "description": "App Favicon",
+      "imageUrl": "/icons/favicon.ico",
+      "imageHint": "nature icon"
+    }
+  ]
+}
