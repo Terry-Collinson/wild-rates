@@ -1,0 +1,19 @@
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyC1JuID8Jv3LgTDX7ZErwUYl02R3Aw6tq0"
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "booking-service-1c217.firebaseapp.com"
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "booking-service-1c217"
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "booking-service-1c217.firebasestorage.app"
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "639107738685"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:639107738685:web:09ef1de33157b5ee3dce54"
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: "G-2CVX5M91H0"
