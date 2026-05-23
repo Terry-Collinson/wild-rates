@@ -317,7 +317,7 @@ export default function RateCalculator() {
             id: r.hotelId || Math.random().toString(),
             lodgeId: r.hotelId || localLodge?.id || 'fallback',
             lodgeName: r.name,
-            name: r.roomName || 'Luxury Sanctuary Suite',
+            name: r.roomName || 'Luxury Lodge Suite',
             otaPrice: marketPrice,
             heroPrice: pricing.heroPrice,
             savings: pricing.marketTotalStay - pricing.totalStayCost,
@@ -363,7 +363,7 @@ export default function RateCalculator() {
               id: `fallback-${lodge.id}`,
               lodgeId: lodge.id,
               lodgeName: lodge.name,
-              name: 'Luxury Sanctuary Suite',
+              name: 'Luxury Lodge Suite',
               otaPrice: 0,
               heroPrice: 0,
               savings: 0,
@@ -397,7 +397,7 @@ export default function RateCalculator() {
         setResults(sortedFinalResults);
         
         if (finalResults.length === 0) {
-          toast({ title: "No Sanctuaries Found", description: "All direct Amakhala inventory is occupied for these dates.", variant: "destructive" });
+          toast({ title: "No Lodges Found", description: "All direct Amakhala inventory is occupied for these dates.", variant: "destructive" });
           setStep('config');
         } else {
           trackEvent('rate_unlock', {
@@ -541,7 +541,7 @@ export default function RateCalculator() {
         const displayName = override?.friendlyName || rt.name;
         
         // Resolve description: override -> ingested room description (usually lodge desc) -> standard premium fallback
-        const description = override?.description || rt.description || "Luxury boutique sanctuary suite verified direct. Includes game drives, premium meals, and conservation guardianship.";
+        const description = override?.description || rt.description || "Luxury boutique lodge suite verified direct. Includes game drives, premium meals, and conservation guardianship.";
         
         // Resolve photographs priority list: Override URL -> Synced Local Images -> Raw API Scraped Images
         const localImagesList = rt.localImages || (rt.localImage ? [rt.localImage] : []);
@@ -710,7 +710,7 @@ export default function RateCalculator() {
                   <SelectItem value={REGIONAL_CONSTANT} className="py-4 font-bold text-primary italic border-b border-white/5 bg-primary/5">
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
-                      All Amakhala Sanctuaries
+                      All Amakhala Lodges
                     </div>
                   </SelectItem>
                   {sortedLodges.map(l => (
@@ -917,7 +917,7 @@ export default function RateCalculator() {
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-[0.2em]">Your Guaranteed Rate (PPPN)</p>
                     <div className="p-4 rounded-xl bg-primary border border-primary/30 flex justify-between items-center shadow-[0_0_20px_rgba(var(--primary),0.2)]">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-primary-foreground/70 uppercase tracking-tighter">Sanctuary-Direct (Wild Rate)</span>
+                        <span className="text-[10px] font-black text-primary-foreground/70 uppercase tracking-tighter">Lodge-Direct (Wild Rate)</span>
                         <span className="text-2xl font-bold text-primary-foreground">R{Math.round(results[0].heroPrice).toLocaleString()}</span>
                       </div>
                       <Badge className="bg-primary-foreground text-primary font-black text-[10px] px-3 py-1 shadow-sm">WINNER</Badge>
@@ -1165,7 +1165,7 @@ export default function RateCalculator() {
                                         <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-[0.2em]">Your Guaranteed Rate (PPPN)</p>
                                         <div className="p-4 rounded-xl bg-primary border border-primary/30 flex justify-between items-center shadow-[0_0_20px_rgba(var(--primary),0.2)]">
                                           <div className="flex flex-col">
-                                            <span className="text-[10px] font-black text-primary-foreground/70 uppercase tracking-tighter">Sanctuary-Direct (Wild Rate)</span>
+                                            <span className="text-[10px] font-black text-primary-foreground/70 uppercase tracking-tighter">Lodge-Direct (Wild Rate)</span>
                                             <span className="text-2xl font-bold text-primary-foreground flex items-baseline gap-2">
                                               R{Math.round(room.totalStayCost || 0).toLocaleString()}
                                               <span className="text-xs font-medium opacity-70">(R{Math.round(room.heroPrice).toLocaleString()} {room.displayLabel})</span>
@@ -1248,7 +1248,7 @@ export default function RateCalculator() {
                         onClick={() => room.isAvailable && handleSelectSanctuary(room)}
                         disabled={loading || !room.isAvailable}
                       >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : room.isAvailable ? 'Select Sanctuary Suite' : 'Inquire Direct'}
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : room.isAvailable ? 'Select Lodge Suite' : 'Inquire Direct'}
                       </Button>
 
                       <p className="text-[8px] text-white/30 italic text-center mt-4 leading-relaxed px-2">
@@ -1423,7 +1423,7 @@ export default function RateCalculator() {
                               <p>1. A <span className="text-primary font-bold">Firestore quote document</span> is created with status <code className="text-primary">Pending</code>.</p>
                               <p>2. <span className="text-amber-400 font-bold">[FUTURE]</span> This payload will be POSTed to the NightsBridge booking endpoint.</p>
                               <p>3. <span className="text-amber-400 font-bold">[FUTURE]</span> On success, the quote will be updated with their <code className="text-primary">booking_id</code> and status set to <code className="text-primary">Confirmed</code>.</p>
-                              <p>4. A sanctuary manager is notified via email to finalize the direct booking.</p>
+                              <p>4. A lodge manager is notified via email to finalize the direct booking.</p>
                             </div>
 
                             <div className="flex gap-4 pt-2">
@@ -1481,7 +1481,7 @@ export default function RateCalculator() {
             </div>
 
             <div className="space-y-4 max-w-md mx-auto">
-              <p className="text-muted-foreground text-sm leading-relaxed">Your reservation request for {selectedLodgeResult.lodgeName} has been transmitted. A sanctuary manager will finalize your direct impact confirmation within 24 hours.</p>
+              <p className="text-muted-foreground text-sm leading-relaxed">Your reservation request for {selectedLodgeResult.lodgeName} has been transmitted. A lodge manager will finalize your direct impact confirmation within 24 hours.</p>
               
               <div className="pt-4 flex flex-col items-center">
                  <p className="text-[10px] text-primary font-bold uppercase tracking-widest mb-1">Total Guaranteed Saving (PPPN Basis)</p>

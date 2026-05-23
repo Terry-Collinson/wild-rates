@@ -35,7 +35,7 @@ export default function LearnMorePage() {
             The Privilege of Direct Guardianship
           </div>
           <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tight text-white">
-            Your Stay. <br /><span className="text-primary italic font-serif">Our Sanctuary.</span>
+            Your Stay. <br /><span className="text-primary italic font-serif">Our Reserve.</span>
           </h1>
           <p className="text-lg md:text-2xl text-white max-w-3xl mx-auto font-light leading-relaxed drop-shadow-lg">
             At Amakhala, the line between guest and guardian is thin. You are more than a visitor; you are a vital partner in the restoration of the Amakhala heritage.
@@ -53,7 +53,7 @@ export default function LearnMorePage() {
             </div>
             <h3 className="text-xl font-bold text-white tracking-tight">Unrivaled Impact</h3>
             <p className="text-muted-foreground leading-relaxed text-sm flex-grow">
-              By removing third-party layers, we ensure that the value of your journey goes straight into the soil, the scouts, and the species that call this sanctuary home.
+              By removing third-party layers, we ensure that the value of your journey goes straight into the soil, the scouts, and the species that call this reserve home.
             </p>
           </div>
 
