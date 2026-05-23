@@ -46,6 +46,7 @@ import { useFirestore } from "@/firebase/provider"
 import { useCollection } from "@/firebase/firestore/use-collection"
 import { collection } from "firebase/firestore"
 import { Lodge } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -71,6 +72,43 @@ export function AdminSidebar({
   isSuperAdmin = false
 }: AdminSidebarProps) {
   const { profile, loading } = useProfile();
+  const { toast } = useToast();
+  const [deploying, setDeploying] = React.useState(false);
+
+  const handleDeployToLive = async () => {
+    setDeploying(true);
+    toast({
+      title: "Initiating Git Sync & Live Deploy",
+      description: "Saving workspace changes, pushing to GitHub, and uploading to Firebase...",
+    });
+
+    try {
+      const response = await fetch('/api/admin/deploy', { method: 'POST' });
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: data.message || "Successfully Deployed!",
+          description: data.gitStatus || "Local source uploaded successfully. Rollout is running in background.",
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Deployment Failed",
+          description: data.details || data.error || "An unknown error occurred during deployment.",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Deployment Error",
+        description: error.message || "Network error while calling local deploy api.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeploying(false);
+    }
+  };
   const db = useFirestore();
   const lodgesQuery = React.useMemo(() => db ? collection(db, 'lodges') : null, [db]);
   const { data: dbLodges } = useCollection<Lodge>(lodgesQuery);
@@ -294,6 +332,23 @@ export function AdminSidebar({
                 >
                   <Users className="w-4 h-4 flex-shrink-0" />
                   <span className="text-xs uppercase tracking-wider">User Clearances</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={handleDeployToLive}
+                  disabled={deploying}
+                  className="h-10 rounded-md transition-all px-3 w-full justify-start gap-3 text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-50"
+                >
+                  {deploying ? (
+                    <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-primary" />
+                  ) : (
+                    <Zap className="w-4 h-4 flex-shrink-0 text-primary fill-primary" />
+                  )}
+                  <span className="text-xs uppercase tracking-wider font-bold">
+                    {deploying ? 'Deploying...' : 'Push to Live'}
+                  </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 

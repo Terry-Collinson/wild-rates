@@ -340,12 +340,61 @@ export default function RateCalculator() {
           } as RoomResult;
         });
 
-        const finalResults = mappedResults.sort((a: RoomResult, b: RoomResult) => {
+        let finalResults = [...mappedResults];
+        
+        if (sanctuaryId === REGIONAL_CONSTANT) {
+          const representedLodgeIds = new Set(
+            mappedResults
+              .map((r: any) => {
+                const matched = sortedLodges.find(l => 
+                  l.id === r.lodgeId || 
+                  l.name.toLowerCase().includes(r.lodgeName?.toLowerCase()) ||
+                  r.lodgeName?.toLowerCase().includes(l.name.toLowerCase())
+                );
+                return matched?.id;
+              })
+              .filter(Boolean)
+          );
+
+          const missingLodges = sortedLodges.filter(l => !representedLodgeIds.has(l.id));
+
+          const missingResults = missingLodges.map((lodge) => {
+            return {
+              id: `fallback-${lodge.id}`,
+              lodgeId: lodge.id,
+              lodgeName: lodge.name,
+              name: 'Luxury Sanctuary Suite',
+              otaPrice: 0,
+              heroPrice: 0,
+              savings: 0,
+              totalStayCost: 0,
+              memberSaving: 0,
+              conservationFuel: 210,
+              totalBenefit: 0,
+              displayLabel: 'Inquire Direct',
+              isSingle: false,
+              image: lodge.adminConfig?.heroImage || lodge.imageUrl || "/api/placeholder/400/300",
+              mealPlan: 'All-Inclusive',
+              amenities: lodge.adminConfig?.amenities || [],
+              isAvailable: false,
+              starRating: 5,
+              statusNote: 'Fully Booked - Inquire Direct',
+              competitors: [],
+              isBestPrice: true,
+              priceBreakdown: null,
+              rooms: []
+            } as RoomResult;
+          });
+
+          finalResults = [...mappedResults, ...missingResults];
+        }
+
+        const sortedFinalResults = finalResults.sort((a: RoomResult, b: RoomResult) => {
           if (a.isAvailable === b.isAvailable) return a.heroPrice - b.heroPrice;
           return a.isAvailable ? -1 : 1;
         });
 
-        setResults(finalResults);
+        setResults(sortedFinalResults);
         
         if (finalResults.length === 0) {
           toast({ title: "No Sanctuaries Found", description: "All direct Amakhala inventory is occupied for these dates.", variant: "destructive" });
