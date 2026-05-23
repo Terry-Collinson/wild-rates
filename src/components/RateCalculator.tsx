@@ -242,10 +242,11 @@ export default function RateCalculator() {
       
       if (data.results && Array.isArray(data.results) && data.results.length > 0) {
         const amakhalaOnlyResults = data.results.filter((r: any) => {
-          const matchingLodge = sortedLodges.find(l => 
-            l.name.toLowerCase().includes(r.name.toLowerCase()) || 
-            r.name.toLowerCase().includes(l.name.toLowerCase())
-          );
+          const matchingLodge = sortedLodges.find(l => {
+            const cleanL = l.name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/lodge|camp|safari|game|reserve|inn/g, '');
+            const cleanR = r.name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/lodge|camp|safari|game|reserve|inn/g, '');
+            return cleanL.includes(cleanR) || cleanR.includes(cleanL);
+          });
           
           if (!matchingLodge) {
             // Keep generic Amakhala matches only if searching the entire region
@@ -262,11 +263,12 @@ export default function RateCalculator() {
         });
 
         const mappedResults = amakhalaOnlyResults.map((r: any) => {
-          const localLodge = sortedLodges.find(l => 
-            l.id === r.hotelId ||
-            l.name.toLowerCase().includes(r.name.toLowerCase()) || 
-            r.name.toLowerCase().includes(l.name.toLowerCase())
-          );
+          const localLodge = sortedLodges.find(l => {
+            if (l.id === r.hotelId) return true;
+            const cleanL = l.name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/lodge|camp|safari|game|reserve|inn/g, '');
+            const cleanR = r.name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/lodge|camp|safari|game|reserve|inn/g, '');
+            return cleanL.includes(cleanR) || cleanR.includes(cleanL);
+          });
           
           // 1. Raw Room Total from API
           const roomTotal = r.price || 0;
@@ -346,11 +348,12 @@ export default function RateCalculator() {
           const representedLodgeIds = new Set(
             mappedResults
               .map((r: any) => {
-                const matched = sortedLodges.find(l => 
-                  l.id === r.lodgeId || 
-                  l.name.toLowerCase().includes(r.lodgeName?.toLowerCase()) ||
-                  r.lodgeName?.toLowerCase().includes(l.name.toLowerCase())
-                );
+                const matched = sortedLodges.find(l => {
+                  if (l.id === r.lodgeId) return true;
+                  const cleanL = l.name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/lodge|camp|safari|game|reserve|inn/g, '');
+                  const cleanR = r.lodgeName?.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/lodge|camp|safari|game|reserve|inn/g, '') || '';
+                  return cleanL.includes(cleanR) || cleanR.includes(cleanL);
+                });
                 return matched?.id;
               })
               .filter(Boolean)
@@ -373,7 +376,7 @@ export default function RateCalculator() {
               totalBenefit: 0,
               displayLabel: 'Inquire Direct',
               isSingle: false,
-              image: lodge.adminConfig?.heroImage || lodge.imageUrl || "/api/placeholder/400/300",
+              image: lodge.adminConfig?.heroImage || lodge.imageUrl || "https://images.unsplash.com/photo-1493246507139-91e8bef99c17?q=80&w=1200&auto=format&fit=crop",
               mealPlan: 'All-Inclusive',
               amenities: lodge.adminConfig?.amenities || [],
               isAvailable: false,
@@ -562,7 +565,7 @@ export default function RateCalculator() {
         allImages = Array.from(new Set(allImages.filter(Boolean)));
         
         if (allImages.length === 0) {
-          const fallbackImg = selectedLodgeResult.image || "/api/placeholder/400/300";
+          const fallbackImg = selectedLodgeResult.image || "https://images.unsplash.com/photo-1493246507139-91e8bef99c17?q=80&w=1200&auto=format&fit=crop";
           allImages = [fallbackImg];
         }
         
@@ -632,7 +635,7 @@ export default function RateCalculator() {
     
     const displayName = override?.friendlyName || selectedLodgeResult.name;
     const description = override?.description || "Direct inventory match verified via Google Hotels API. Includes all-inclusive meals, game drives, and conservation guardianship.";
-    const uniqueRoomImage = override?.imageUrl || selectedLodgeResult.image || "/api/placeholder/400/300";
+    const uniqueRoomImage = override?.imageUrl || selectedLodgeResult.image || "https://images.unsplash.com/photo-1493246507139-91e8bef99c17?q=80&w=1200&auto=format&fit=crop";
     
     return [
       { 
