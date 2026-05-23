@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   ShieldCheck, 
   ArrowRight, 
@@ -34,10 +35,19 @@ export default function HeroJoinPage() {
   const db = useFirestore();
   const { toast } = useToast();
   
-  const referralSource = searchParams.get('utm_source') || 'direct';
+  const isShadowMode = searchParams.get('shadow_test') === 'true';
+  const referralSource = searchParams.get('utm_source') || (isShadowMode ? 'fb_group_shadow' : 'direct');
   
-  const [authState, setAuthState] = useState<'idle' | 'logging-in' | 'pledging' | 'verifying' | 'success'>('idle');
+  const [gameState, setGameState] = useState<'idle' | 'pledged'>('idle'); // Game state check
+  const [authState, setAuthState] = useState<'idle' | 'logging-in' | 'pledging' | 'distribution-profile' | 'verifying' | 'success'>('idle');
   const [userData, setUserData] = useState<{ name: string; photoURL: string; email: string; uid: string } | null>(null);
+  
+  // Matched loyalty statuses from key channels diagram
+  const [bookingGeniusLevel, setBookingGeniusLevel] = useState<number>(2);
+  const [expediaOneKeyLevel, setExpediaOneKeyLevel] = useState<'none' | 'blue' | 'silver' | 'gold-platinum'>('silver');
+  const [agodaVipLevel, setAgodaVipLevel] = useState<'none' | 'bronze' | 'silver' | 'gold' | 'platinum'>('silver');
+  const [tripadvisorPlusActive, setTripadvisorPlusActive] = useState<boolean>(false);
+  const [wholesaleTradeTier, setWholesaleTradeTier] = useState<number>(0);
 
   const heroImg = PlaceHolderImages.find(img => img.id === 'hero-safari')?.imageUrl || "/backgrounds/hillsneck.jpg";
 
@@ -48,6 +58,12 @@ export default function HeroJoinPage() {
         description: "Firebase services are loading. Please try again in a moment.",
         variant: "destructive"
       });
+      return;
+    }
+
+    // Shadow Mode Hijack
+    if (isShadowMode) {
+      handleShadowBypass();
       return;
     }
     
@@ -90,6 +106,20 @@ export default function HeroJoinPage() {
     }
   };
 
+  const handleShadowBypass = () => {
+    setUserData({
+      name: 'Local Tester',
+      email: 'test@local.com',
+      uid: 'local-123',
+      photoURL: ''
+    });
+    setAuthState('pledging');
+    toast({
+      title: "Shadow Mode Active",
+      description: "Mock auth successful. Moving to Pledge screen.",
+    });
+  };
+
   const handleCommitPledge = async () => {
     if (!userData || !db) return;
     
@@ -105,7 +135,12 @@ export default function HeroJoinPage() {
         heroTier: 3,
         referralSource: referralSource,
         joinedAt: serverTimestamp(),
-        pledgeAccepted: true
+        pledgeAccepted: true,
+        bookingGeniusLevel,
+        expediaOneKeyLevel,
+        agodaVipLevel,
+        tripadvisorPlusActive,
+        wholesaleTradeTier
       }, { merge: true });
 
       setTimeout(() => {
@@ -113,7 +148,7 @@ export default function HeroJoinPage() {
       }, 2500);
 
     } catch (error: any) {
-      setAuthState('pledging');
+      setAuthState('distribution-profile');
       toast({
         title: "Database Error",
         description: "Could not finalize your Guardian profile.",
@@ -202,6 +237,16 @@ export default function HeroJoinPage() {
                       </>
                     )}
                   </Button>
+
+                  {(isShadowMode || typeof window !== 'undefined' && window.location.hostname === 'localhost') && (
+                    <Button 
+                      onClick={handleShadowBypass}
+                      variant="outline"
+                      className="w-full h-12 border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 font-bold rounded-full text-xs uppercase tracking-widest transition-all"
+                    >
+                      [DEV] Trigger Shadow Conversion
+                    </Button>
+                  )}
                   <div className="flex flex-col gap-2">
                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3 text-left">
                       <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -260,12 +305,180 @@ export default function HeroJoinPage() {
                 </div>
 
                 <Button 
-                  onClick={handleCommitPledge}
+                  onClick={() => setAuthState('distribution-profile')}
                   className="w-full h-16 bg-primary text-primary-foreground font-black rounded-full text-lg shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform"
                 >
                   I Accept the Pledge
                   <Check className="ml-2 w-5 h-5" />
                 </Button>
+              </Card>
+            </motion.div>
+          )}
+
+          {authState === 'distribution-profile' && (
+            <motion.div 
+              key="distribution-profile"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="space-y-8 max-w-2xl mx-auto"
+            >
+              <Card className="glass-card border-primary/30 bg-[#070c09]/95 p-8 md:p-10 rounded-[2.5rem] space-y-8 shadow-2xl">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto border border-primary/20">
+                    <Globe className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-headline font-bold italic text-white">OTA & Loyalty Setup</h2>
+                    <p className="text-primary font-bold uppercase tracking-[0.2em] text-[10px]">Configure your active loyalty tiers for automatic parity comparison</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* B2C Retail - Booking.com Genius */}
+                  <div className="space-y-3 p-5 rounded-2xl bg-white/5 border border-white/5">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-[#003580] fill-white" />
+                        Booking.com Genius
+                      </h3>
+                      <Badge className="bg-primary/20 text-primary border-primary/30 text-[9px] font-black uppercase">RETAIL B2C</Badge>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[0, 1, 2, 3].map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => setBookingGeniusLevel(lvl)}
+                          className={`py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
+                            bookingGeniusLevel === lvl 
+                              ? 'border-primary bg-primary/10 text-primary' 
+                              : 'border-white/5 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          {lvl === 0 ? 'None' : `Level ${lvl}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* B2C Retail - Expedia One Key */}
+                  <div className="space-y-3 p-5 rounded-2xl bg-white/5 border border-white/5">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-[#F1D37E] fill-primary" />
+                        Expedia One Key
+                      </h3>
+                      <Badge className="bg-primary/20 text-primary border-primary/30 text-[9px] font-black uppercase">RETAIL B2C</Badge>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(['none', 'blue', 'silver', 'gold-platinum'] as const).map((tier) => (
+                        <button
+                          key={tier}
+                          type="button"
+                          onClick={() => setExpediaOneKeyLevel(tier)}
+                          className={`py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
+                            expediaOneKeyLevel === tier 
+                              ? 'border-primary bg-primary/10 text-primary' 
+                              : 'border-white/5 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          {tier === 'none' ? 'None' : tier === 'gold-platinum' ? 'Gold+' : tier}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Agoda VIP */}
+                  <div className="space-y-3 p-5 rounded-2xl bg-white/5 border border-white/5">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-emerald-400" />
+                        Agoda VIP Status
+                      </h3>
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-black uppercase">META-SEARCH</Badge>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(['none', 'bronze', 'silver', 'gold', 'platinum'] as const).map((tier) => (
+                        <button
+                          key={tier}
+                          type="button"
+                          onClick={() => setAgodaVipLevel(tier)}
+                          className={`py-2 rounded-xl text-[9px] font-bold uppercase transition-all border ${
+                            agodaVipLevel === tier 
+                              ? 'border-primary bg-primary/10 text-primary' 
+                              : 'border-white/5 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          {tier}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tripadvisor Plus & Trade */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Tripadvisor Plus */}
+                    <button
+                      type="button"
+                      onClick={() => setTripadvisorPlusActive(!tripadvisorPlusActive)}
+                      className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                        tripadvisorPlusActive 
+                          ? 'border-primary bg-primary/10' 
+                          : 'border-white/5 bg-white/5 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start w-full">
+                        <span className="text-sm font-bold text-white uppercase tracking-wider">Tripadvisor Plus</span>
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[8px] font-black uppercase">META</Badge>
+                      </div>
+                      <p className="text-[10px] text-white/40 mt-1 leading-relaxed">Paid subscription status ($99/year)</p>
+                      <div className="mt-4 flex items-center gap-2 text-xs font-bold uppercase">
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${tripadvisorPlusActive ? 'border-primary bg-primary' : 'border-white/20'}`}>
+                          {tripadvisorPlusActive && <Check className="w-2.5 h-2.5 text-black font-black" />}
+                        </div>
+                        <span className={tripadvisorPlusActive ? 'text-primary' : 'text-white/60'}>
+                          {tripadvisorPlusActive ? 'Active (10-20% Off)' : 'Not Subscribed'}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Wholesale Agent */}
+                    <div className={`p-5 rounded-2xl border bg-white/5 border-white/5 text-left flex flex-col justify-between`}>
+                      <div className="flex justify-between items-start w-full mb-1">
+                        <span className="text-sm font-bold text-white uppercase tracking-wider">B2B Trade Channel</span>
+                        <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[8px] font-black uppercase">WHOLESALE</Badge>
+                      </div>
+                      <p className="text-[10px] text-white/40 leading-relaxed mb-3">FIT Contracted / Agent status</p>
+                      <div className="grid grid-cols-4 gap-1.5 w-full">
+                        {[0, 1, 2, 3].map((tier) => (
+                          <button
+                            key={tier}
+                            type="button"
+                            onClick={() => setWholesaleTradeTier(tier)}
+                            className={`py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all border ${
+                              wholesaleTradeTier === tier 
+                                ? 'border-primary bg-primary/10 text-primary' 
+                                : 'border-white/5 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
+                            }`}
+                          >
+                            {tier === 0 ? 'None' : `T${tier}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 space-y-4">
+                  <Button 
+                    onClick={handleCommitPledge}
+                    className="w-full h-16 bg-primary text-primary-foreground font-black rounded-full text-lg shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform"
+                  >
+                    Confirm My Distribution Profiles
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                </div>
               </Card>
             </motion.div>
           )}
@@ -378,6 +591,8 @@ export default function HeroJoinPage() {
           )}
         </AnimatePresence>
       </section>
+
+      {/* Developer button moved inside main card for visibility */}
     </main>
   );
 }

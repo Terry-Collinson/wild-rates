@@ -8,16 +8,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useFirestore, useStorage, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useStorage, useCollection, useMemoFirebase, useUser, useProfile } from '@/firebase';
+import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, where } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { FileText, Upload, Trash2, Loader2, Link as LinkIcon, FileDown, Copy, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const ADMIN_EMAILS = ['reservations@amakhala.com', 'terry_collinson@debono.net'];
+import { INITIAL_LODGES } from '@/lib/mock-data';
+import { ShieldAlert } from 'lucide-react';
 
 interface SanctuaryDocument {
   id?: string;
@@ -28,9 +31,11 @@ interface SanctuaryDocument {
   fileName: string;
   fileSize: number;
   uploadedAt: any;
+  lodgeId: string;
 }
 
 export default function DocumentAdminPage() {
+  const { profile, loading: loadingProfile } = useProfile();
   const { user, loading: loadingUser } = useUser();
   const db = useFirestore();
   const storage = useStorage();
@@ -43,19 +48,39 @@ export default function DocumentAdminPage() {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Handbook');
   const [description, setDescription] = useState('');
+  const [selectedLodgeId, setSelectedLodgeId] = useState<string>('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loadingUser && (!user || !ADMIN_EMAILS.some(email => email.toLowerCase() === user.email?.toLowerCase()))) {
-      router.push('/portal');
+    if (!loadingProfile && !profile) {
+      // Logic handled in JSX
     }
-  }, [user, loadingUser, router]);
+  }, [profile, loadingProfile]);
 
-  const docsQuery = useMemoFirebase(() => db ? collection(db, 'documents') : null, [db]);
+  const managed_lodge_ids = profile?.managed_lodge_ids || [];
+  const isSuperAdmin = profile?.role === 'super_admin' || ADMIN_EMAILS.some(email => email.toLowerCase() === user?.email?.toLowerCase());
+  const hasAccess = isSuperAdmin || managed_lodge_ids.length > 0;
+
+  const lodgesQuery = useMemoFirebase(() => db ? collection(db, 'lodges') : null, [db]);
+  const { data: dbLodges } = useCollection<any>(lodgesQuery);
+  const lodgesList = dbLodges && dbLodges.length > 0 ? dbLodges : INITIAL_LODGES;
+
+  const filteredLodges = isSuperAdmin 
+    ? lodgesList 
+    : lodgesList.filter(l => managed_lodge_ids.includes(l.id));
+
+  const docsQuery = useMemoFirebase(() => {
+    if (!db || !hasAccess) return null;
+    if (isSuperAdmin) return collection(db, 'documents');
+    return query(collection(db, 'documents'), where('lodgeId', 'in', managed_lodge_ids));
+  }, [db, isSuperAdmin, managed_lodge_ids, hasAccess]);
   const { data: documents, loading } = useCollection<SanctuaryDocument>(docsQuery);
 
   const handleUpload = async () => {
-    if (!db || !storage || !file || !title) return;
+    if (!db || !storage || !file || !title || (!isSuperAdmin && !selectedLodgeId)) {
+      toast({ title: "Validation Error", description: "All fields including lodge assignment are required.", variant: "destructive" });
+      return;
+    }
 
     setUploading(true);
     setProgress(0);
@@ -89,6 +114,7 @@ export default function DocumentAdminPage() {
             fileName: file.name,
             fileSize: file.size,
             uploadedAt: serverTimestamp(),
+            lodgeId: selectedLodgeId || 'all_sanctuaries',
           });
 
           toast({ 
@@ -133,7 +159,7 @@ export default function DocumentAdminPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  if (loadingUser) {
+  if (loadingUser || loadingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -141,8 +167,32 @@ export default function DocumentAdminPage() {
     );
   }
 
-  if (!user || !ADMIN_EMAILS.some(email => email.toLowerCase() === user.email?.toLowerCase())) {
+  if (!user) {
+    router.push('/hero-join');
     return null;
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center p-6 text-center">
+        <Navbar />
+        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
+          <ShieldAlert className="w-10 h-10 text-red-500" />
+        </div>
+        <h1 className="text-3xl font-headline italic font-bold text-white mb-2">Restricted Access</h1>
+        <p className="text-white/40 max-w-md mb-8">
+          Your account is not currently assigned to any lodges. Please contact the system administrator to provision your access scope.
+        </p>
+        <div className="flex flex-col gap-4 w-full max-w-xs">
+          <Button asChild className="rounded-full h-12 bg-white/5 hover:bg-white/10 border border-white/10 text-white">
+            <Link href="mailto:reservations@amakhala.com">Contact System Admin</Link>
+          </Button>
+          <Button variant="ghost" className="text-white/40 hover:text-white" onClick={() => router.push('/portal')}>
+            Return to Portal
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -186,6 +236,21 @@ export default function DocumentAdminPage() {
                     <SelectItem value="Map">Map</SelectItem>
                     <SelectItem value="Policy">Policy</SelectItem>
                     <SelectItem value="Marketing">Marketing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Assign to Sanctuary</Label>
+                <Select value={selectedLodgeId} onValueChange={setSelectedLodgeId}>
+                  <SelectTrigger className="bg-white/5 border-white/10">
+                    <SelectValue placeholder="Select Sanctuary" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isSuperAdmin && <SelectItem value="all_sanctuaries">Global / All Sanctuaries</SelectItem>}
+                    {filteredLodges.map(l => (
+                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -259,7 +324,9 @@ export default function DocumentAdminPage() {
                     <div className="space-y-1 mb-6">
                       <h3 className="font-bold text-lg text-white group-hover:text-primary transition-colors">{doc.title}</h3>
                       <p className="text-xs text-muted-foreground line-clamp-1">{doc.description || 'Verified sanctuary resource.'}</p>
-                      <p className="text-[9px] text-white/30 uppercase font-bold tracking-widest">{doc.fileName} • {(doc.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                      <p className="text-[9px] text-white/30 uppercase font-bold tracking-widest">
+                        {doc.fileName} • {(doc.fileSize / 1024 / 1024).toFixed(2)} MB • {filteredLodges.find(l => l.id === doc.lodgeId)?.name || 'Global'}
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" asChild className="flex-1 border-white/10 hover:border-primary/50 rounded-lg h-9 bg-white/5">

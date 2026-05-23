@@ -27,6 +27,10 @@ export default function MarketTrendsPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const lodgesQuery = useMemoFirebase(() => db ? collection(db, 'lodges') : null, [db]);
+  const { data: dbLodges } = useCollection<any>(lodgesQuery);
+  const lodgesList = dbLodges && dbLodges.length > 0 ? dbLodges : INITIAL_LODGES;
+  
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatus, setSyncStatus] = useState("");
@@ -60,11 +64,11 @@ export default function MarketTrendsPage() {
     filtered = filtered.filter(r => r.search_params?.is_benchmark === true);
     
     if (activeLodge !== 'all') {
-      const lodgeName = INITIAL_LODGES.find(l => l.id === activeLodge)?.name;
+      const lodgeName = lodgesList.find(l => l.id === activeLodge)?.name;
       filtered = filtered.filter(r => r.lodge_name === lodgeName || !r.is_own_property);
     }
     return filtered.sort((a, b) => a.check_in_date.localeCompare(b.check_in_date));
-  }, [rawRates, activeLodge]);
+  }, [rawRates, activeLodge, lodgesList]);
 
   const historyQuery = useMemoFirebase(() => {
     if (!db || !selectedRateId) return null;
@@ -194,7 +198,7 @@ export default function MarketTrendsPage() {
                 </SelectTrigger>
                 <SelectContent className="bg-[#111] border-white/10 text-white">
                   <SelectItem value="all">Entire Amakhala Portfolio</SelectItem>
-                  {INITIAL_LODGES.map(l => (
+                  {lodgesList.map(l => (
                     <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                   ))}
                 </SelectContent>

@@ -24,27 +24,34 @@ export const calculateSafariPrice = (
     const dailyTotal = roomTotal / safeNights;
     const bareAdultPPS = dailyTotal / safeWeight;
 
-    // 4. Value Metrics (Dynamic Policy)
+    // 4. Value Metrics (Dynamic Policy & Genius Auto-Beat)
     const otaCommissionRate = config?.ota_commission_rate || 0.15;
-    const memberDiscountRate = config?.member_discount_rate || 0.05;
     const heroMultiplier = config?.hero_guarantee_multiplier || 0.95;
+    const geniusMultiplier = config?.geniusMultiplier ?? 1.0;
 
     // 5. Final Calculations
     const totalPeople = adults + childAges.length;
     const totalLevies = totalPeople * levy * safeNights;
     
-    const marketTotalStay = roomTotal + totalLevies;
-    const heroTotalStay = (roomTotal * heroMultiplier) + totalLevies;
+    // Auto-beat implementation:
+    // If the OTA features a Genius/mobile discount, the baseline is already reduced.
+    // The Hero rate is guaranteed to always beat the Genius/OTA price by an additional 5%!
+    const otaBaseTotal = roomTotal * geniusMultiplier;
+    const heroBaseTotal = otaBaseTotal * heroMultiplier;
+
+    const marketTotalStay = otaBaseTotal + totalLevies;
+    const heroTotalStay = heroBaseTotal + totalLevies;
 
     // What the GUEST saves (Member Saving)
-    const guestSavingTotal = (bareAdultPPS * (1 - heroMultiplier)) * safeWeight * safeNights;
+    const guestSavingTotal = marketTotalStay - heroTotalStay;
     
     // What the LODGE saves (Conservation Fuel)
-    // The lodge keeps the commission that would have gone to the OTA, minus the guest discount
-    const conservationFuelTotal = (roomTotal * otaCommissionRate) - guestSavingTotal;
+    // The lodge keeps the commission that would have gone to the OTA (based on the ota rate),
+    // minus the guest's member saving discount.
+    const conservationFuelTotal = (otaBaseTotal * otaCommissionRate) - guestSavingTotal;
 
     return {
-        heroPrice: (bareAdultPPS * heroMultiplier) + levy, 
+        heroPrice: (bareAdultPPS * geniusMultiplier * heroMultiplier) + levy, 
         totalStayCost: heroTotalStay,
         marketTotalStay: marketTotalStay,
         displayLabel: isSingle ? "Single Rate" : "PPS",
@@ -55,8 +62,8 @@ export const calculateSafariPrice = (
         conservationFuel: conservationFuelTotal,
         totalBenefit: guestSavingTotal + conservationFuelTotal,
         breakdown: {
-            adultRate: bareAdultPPS * heroMultiplier,
-            childRate: (bareAdultPPS * 0.5) * heroMultiplier,
+            adultRate: bareAdultPPS * geniusMultiplier * heroMultiplier,
+            childRate: (bareAdultPPS * 0.5) * geniusMultiplier * heroMultiplier,
             levy: levy,
             adults: adults,
             children: childAges.length,

@@ -50,6 +50,8 @@ export interface RoomType {
   nightsbridge_id?: string;
   name: string;
   images?: string[];
+  localImages?: string[];
+  localImage?: string;
   max_guests?: number;
   description?: string;
 }
@@ -97,6 +99,8 @@ export interface CompetitorRate {
   is_own_property?: boolean;
   is_verified_total?: boolean;
   is_pppn?: boolean;
+  lodgeId?: string;
+  property_id?: string;
   search_params?: {
     adults: number;
     nights: number;

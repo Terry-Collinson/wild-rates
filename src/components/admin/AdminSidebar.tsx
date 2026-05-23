@@ -7,23 +7,24 @@ import {
   Zap,
   Library,
   ClipboardList,
-  Globe,
-  TrendingUp,
   Database,
   ImageIcon,
   ChevronRight,
   Shield,
   Loader2,
-  Eye, // Added for WildEye branding
-  Activity,
-  LineChart
+  Facebook,
+  ExternalLink,
+  Users,
+  Building2,
+  Sliders,
+  TrendingUp,
+  ShieldAlert
 } from "lucide-react"
 
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
@@ -39,7 +40,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { INITIAL_LODGES } from "@/lib/mock-data"
-import Link from "next/link"
+import { useProfile } from "@/firebase/auth/use-profile"
+import { cn } from "@/lib/utils"
+import { useFirestore } from "@/firebase/provider"
+import { useCollection } from "@/firebase/firestore/use-collection"
+import { collection } from "firebase/firestore"
+import { Lodge } from "@/lib/types"
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -50,6 +56,7 @@ interface AdminSidebarProps {
   setActiveLodgeFilter: (filter: string) => void;
   runMediaSync: () => void;
   mediaSyncing: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export function AdminSidebar({
@@ -60,64 +67,137 @@ export function AdminSidebar({
   activeLodgeFilter,
   setActiveLodgeFilter,
   runMediaSync,
-  mediaSyncing
+  mediaSyncing,
+  isSuperAdmin = false
 }: AdminSidebarProps) {
+  const { profile, loading } = useProfile();
+  const db = useFirestore();
+  const lodgesQuery = React.useMemo(() => db ? collection(db, 'lodges') : null, [db]);
+  const { data: dbLodges } = useCollection<Lodge>(lodgesQuery);
+
+  const lodgesList = dbLodges && dbLodges.length > 0 ? dbLodges : INITIAL_LODGES;
+
+  const actualSuperAdmin = isSuperAdmin || profile?.role === 'super_admin';
+  const managed_lodge_ids = profile?.managed_lodge_ids || [];
+
+  const filteredLodges = (actualSuperAdmin === true)
+    ? lodgesList
+    : lodgesList.filter(lodge => managed_lodge_ids.includes(lodge.id));
+
+  const showAllOption = actualSuperAdmin || filteredLodges.length > 1;
+
+  if (loading) {
+    return (
+      <Sidebar collapsible="icon" className="border-r border-white/10 bg-[#0c0c0c] shrink-0 sticky top-16 h-[calc(100vh-4rem)]">
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="w-6 h-6 animate-spin text-primary/40" />
+        </div>
+      </Sidebar>
+    );
+  }
+
   return (
-    <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader className="border-b border-white/5 p-4">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center shadow-lg shadow-primary/10">
+    <Sidebar collapsible="icon" className="border-r border-white/10 bg-[#0c0c0c] shrink-0 sticky top-16 h-[calc(100vh-4rem)] z-20">
+      <SidebarHeader className="border-b border-white/10 p-6 bg-[#0c0c0c]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center border border-primary/20">
             <Shield className="w-4 h-4 text-primary" />
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-black uppercase tracking-widest text-white">WildRates</span>
-            <span className="text-[9px] font-bold text-primary uppercase tracking-[0.2em]">Command Center</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">WildRates PRO</span>
+            <span className="text-[8px] font-mono text-white/30 uppercase tracking-[0.3em]">
+              {actualSuperAdmin ? 'System Terminal' : 'Lodge Terminal'}
+            </span>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        {/* Operations Section */}
+      <SidebarContent className="p-4 space-y-6 bg-[#0c0c0c]">
+
+        {/* Hub 1: Core Administration Control */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase font-bold text-white/30 tracking-widest">Operations</SidebarGroupLabel>
-          <SidebarMenu>
+          <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-white/20 tracking-[0.2em] mb-3 px-2">
+            {actualSuperAdmin ? "System Administration" : "Lodge Administration"}
+          </SidebarGroupLabel>
+          <SidebarMenu className="gap-1">
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={activeTab === 'overview'}
+                isActive={mode === 'operations' && activeTab === 'overview'}
                 onClick={() => { setMode('operations'); setActiveTab('overview'); }}
-                tooltip="Overview"
+                className={cn(
+                  "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                  mode === 'operations' && activeTab === 'overview' ? "bg-white/5 text-primary border border-white/5 font-bold" : "text-white/50 hover:text-white hover:bg-white/5"
+                )}
               >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Overview</span>
+                <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs uppercase tracking-wider">Dashboard Overview</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={mode === 'operations' && activeTab === 'lodge-details'}
+                onClick={() => { setMode('operations'); setActiveTab('lodge-details'); }}
+                className={cn(
+                  "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                  mode === 'operations' && activeTab === 'lodge-details' ? "bg-white/5 text-primary border border-white/5 font-bold" : "text-white/50 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Building2 className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs uppercase tracking-wider">Lodge Details</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={mode === 'operations' && activeTab === 'inventory'}
+                onClick={() => { setMode('operations'); setActiveTab('inventory'); }}
+                className={cn(
+                  "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                  mode === 'operations' && activeTab === 'inventory' ? "bg-white/5 text-primary border border-white/5 font-bold" : "text-white/50 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Sliders className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs uppercase tracking-wider">Inventory Config</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
 
             <Collapsible asChild defaultOpen className="group/collapsible">
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip="Lodges">
-                    <MapPin className="w-4 h-4" />
-                    <span>Lodge Registry</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <SidebarMenuButton className="h-10 text-white/50 hover:text-white px-3 justify-start gap-3 w-full">
+                    <MapPin className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs uppercase tracking-wider font-bold">Active Scopes</span>
+                    <ChevronRight className="ml-auto w-4 h-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        isActive={activeTab === 'sanctuaries' && activeLodgeFilter === 'all'}
-                        onClick={() => { setMode('operations'); setActiveTab('sanctuaries'); setActiveLodgeFilter('all'); }}
-                      >
-                        <span>All Sanctuaries</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    {INITIAL_LODGES.map((lodge) => (
+                  <SidebarMenuSub className="border-l border-white/5 ml-4 mt-1 gap-1 pl-2">
+                    {showAllOption && (
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={mode === 'operations' && activeTab === 'sanctuaries' && activeLodgeFilter === 'all'}
+                          onClick={() => { setMode('operations'); setActiveTab('sanctuaries'); setActiveLodgeFilter('all'); }}
+                          className={cn(
+                            "text-[11px] uppercase tracking-wide py-2 block text-left w-full",
+                            mode === 'operations' && activeTab === 'sanctuaries' && activeLodgeFilter === 'all' ? "text-primary font-bold" : "text-white/40 hover:text-white"
+                          )}
+                        >
+                          All Managed Scopes
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )}
+                    {filteredLodges.map((lodge) => (
                       <SidebarMenuSubItem key={lodge.id}>
                         <SidebarMenuSubButton
-                          isActive={activeTab === 'sanctuaries' && activeLodgeFilter === lodge.id}
+                          isActive={mode === 'operations' && activeTab === 'sanctuaries' && activeLodgeFilter === lodge.id}
                           onClick={() => { setMode('operations'); setActiveTab('sanctuaries'); setActiveLodgeFilter(lodge.id); }}
+                          className={cn(
+                            "text-[11px] uppercase tracking-wide py-2 block text-left w-full",
+                            mode === 'operations' && activeTab === 'sanctuaries' && activeLodgeFilter === lodge.id ? "text-primary font-bold" : "text-white/40 hover:text-white"
+                          )}
                         >
-                          <span>{lodge.name}</span>
+                          {lodge.name}
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
@@ -128,117 +208,154 @@ export function AdminSidebar({
 
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={activeTab === 'bookings'}
+                isActive={mode === 'operations' && activeTab === 'bookings'}
                 onClick={() => { setMode('operations'); setActiveTab('bookings'); }}
-                tooltip="Direct Requests"
+                className={cn(
+                  "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                  mode === 'operations' && activeTab === 'bookings' ? "bg-white/5 text-primary border border-white/5 font-bold" : "text-white/50 hover:text-white hover:bg-white/5"
+                )}
               >
-                <ClipboardList className="w-4 h-4" />
-                <span>Direct Requests</span>
+                <ClipboardList className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs uppercase tracking-wider">Transmission Log</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* WildEye Section - RE-BRANDED */}
+        {/* Hub 2: Market Intelligence Layer */}
         <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2 text-[10px] uppercase font-bold text-emerald-500/60 tracking-widest">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-            </span>
-            WildEye Analytics
+          <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-emerald-500/40 tracking-[0.2em] mb-3 px-2">
+            Market Intelligence
           </SidebarGroupLabel>
-          <SidebarMenu>
+          <SidebarMenu className="gap-1">
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={activeTab === 'intelligence'}
-                onClick={() => { setMode('operations'); setActiveTab('intelligence'); }}
-                tooltip="WildEye Terminal"
-                className={activeTab === 'intelligence' ? "bg-emerald-500/5 text-emerald-500 border-r-2 border-emerald-500/50" : ""}
+                isActive={mode === 'operations' && activeTab === 'competitors'}
+                onClick={() => { setMode('operations'); setActiveTab('competitors'); }}
+                className={cn(
+                  "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                  mode === 'operations' && activeTab === 'competitors'
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold"
+                    : "text-white/50 hover:text-white hover:bg-white/5"
+                )}
               >
-                <Eye className={activeTab === 'intelligence' ? "text-emerald-500" : "w-4 h-4"} />
-                <span className="flex items-center justify-between w-full">
-                  WildEye Terminal
-                  <Badge className="bg-emerald-500/20 text-emerald-500 text-[8px] font-black px-1 py-0">LIVE</Badge>
-                </span>
+                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs uppercase tracking-wider">Competitors</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Demand Heatmap">
-                <Activity className="w-4 h-4" />
-                <span>Regional Demand</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Parity Guard">
-                <LineChart className="w-4 h-4" />
-                <span>Parity Guard</span>
+              <SidebarMenuButton
+                isActive={mode === 'operations' && activeTab === 'velocity'}
+                onClick={() => { setMode('operations'); setActiveTab('velocity'); }}
+                className={cn(
+                  "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                  mode === 'operations' && activeTab === 'velocity'
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold"
+                    : "text-white/50 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <TrendingUp className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs uppercase tracking-wider">Market Velocity</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* Systems Section */}
+        {/* Hub 3: Ecosystem Control */}
+        {actualSuperAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-primary/40 tracking-[0.2em] mb-3 px-2">
+              Ecosystem Control
+            </SidebarGroupLabel>
+            <SidebarMenu className="gap-1">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={mode === 'systems' && activeTab === 'core'}
+                  onClick={() => { setMode('systems'); setActiveTab('core'); }}
+                  className={cn(
+                    "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                    mode === 'systems' && activeTab === 'core' ? "bg-white/5 text-primary border border-white/5 font-bold" : "text-white/50 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <Database className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-xs uppercase tracking-wider">Global Registry</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={mode === 'systems' && activeTab === 'users'}
+                  onClick={() => { setMode('systems'); setActiveTab('users'); }}
+                  className={cn(
+                    "h-10 rounded-md transition-all px-3 w-full justify-start gap-3",
+                    mode === 'systems' && activeTab === 'users' ? "bg-white/5 text-primary border border-white/5 font-bold" : "text-white/50 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-xs uppercase tracking-wider">User Clearances</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <Collapsible asChild className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="h-10 text-white/50 hover:text-white px-3 justify-start gap-3 w-full">
+                      <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-xs uppercase tracking-wider font-bold">Media CDN</span>
+                      <ChevronRight className="ml-auto w-4 h-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub className="border-l border-white/5 ml-4 mt-1 gap-1 pl-2">
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => !mediaSyncing && runMediaSync()}
+                          className={cn("text-[11px] uppercase py-2 flex items-center text-left w-full", mediaSyncing ? "text-white/20 pointer-events-none" : "text-white/40 hover:text-white")}
+                        >
+                          {mediaSyncing ? <Loader2 className="animate-spin w-3 h-3 mr-2 shrink-0" /> : <Zap className="w-3 h-3 mr-2 text-primary shrink-0" />}
+                          {mediaSyncing ? 'Syncing...' : 'Sync CDN Assets'}
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={mode === 'systems' && activeTab === 'media'}
+                          onClick={() => { setMode('systems'); setActiveTab('media'); }}
+                          className={cn(
+                            "text-[11px] uppercase py-2 flex items-center text-left w-full",
+                            mode === 'systems' && activeTab === 'media' ? "text-primary font-bold" : "text-white/40 hover:text-white"
+                          )}
+                        >
+                          <Library className="w-3 h-3 mr-2 shrink-0" />
+                          Asset Explorer
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
+        {/* Resources Dropdown */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase font-bold text-white/30 tracking-widest">Systems</SidebarGroupLabel>
-          <SidebarMenu>
+          <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-white/20 tracking-[0.2em] mb-3 px-2">
+            Resources
+          </SidebarGroupLabel>
+          <SidebarMenu className="gap-1">
             <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={mode === 'systems'}
-                onClick={() => setMode('systems')}
-                tooltip="Infrastructure"
-              >
-                <Database className="w-4 h-4" />
-                <span>Core Foundation</span>
+              <SidebarMenuButton asChild className="h-10 text-white/50 hover:text-white px-3 w-full justify-start gap-3">
+                <a href="https://www.facebook.com/groups/135339659870615" target="_blank" rel="noopener noreferrer">
+                  <Facebook className="w-4 h-4 text-[#1877F2] flex-shrink-0" />
+                  <span className="text-xs uppercase tracking-wider font-bold">Community</span>
+                  <ExternalLink className="w-3 h-3 ml-auto opacity-30 flex-shrink-0" />
+                </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
-
-            <Collapsible asChild className="group/collapsible">
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip="Media Assets">
-                    <ImageIcon className="w-4 h-4" />
-                    <span>Media Assets</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        onClick={() => !mediaSyncing && runMediaSync()}
-                        className={mediaSyncing ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}
-                      >
-                        {mediaSyncing ? <Loader2 className="animate-spin mr-2 w-3.5 h-3.5" /> : <Zap className="mr-2 w-3.5 h-3.5 text-primary" />}
-                        <span>{mediaSyncing ? 'Syncing...' : 'Sync CDN Assets'}</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild>
-                        <Link href="/admin/media">
-                          <Library className="mr-2 w-3.5 h-3.5" />
-                          <span>Asset Explorer</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }
-
-// Utility Badge Component if not already available in your UI lib
-const Badge = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <span className={cn("px-1.5 py-0.5 rounded-md leading-none", className)}>
-    {children}
-  </span>
-)
-
-const cn = (...classes: any[]) => classes.filter(Boolean).join(" ");

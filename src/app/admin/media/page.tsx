@@ -15,6 +15,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { 
+  SidebarProvider, 
+  SidebarInset 
+} from "@/components/ui/sidebar";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
 
 interface RoomTypeImage {
   roomName: string;
@@ -169,114 +174,137 @@ export default function MediaExplorerPage() {
     }
   };
 
+  const [sidebarActiveTab, setSidebarActiveTab] = useState('media');
+  const [sidebarMode, setSidebarMode] = useState<'operations' | 'systems'>('systems');
+  const [sidebarLodgeFilter, setSidebarLodgeFilter] = useState('all');
+
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <header className="flex items-center justify-between">
-          <div className="space-y-1">
-            <Link href="/admin" className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors mb-4 group">
-              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Back to Dashboard</span>
-            </Link>
-            <h1 className="text-4xl font-headline italic">Media Asset Explorer</h1>
-            <p className="text-white/40 text-sm">Direct access to external sanctuary imagery across the reserve.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button 
-              onClick={testScraper} 
-              variant="outline" 
-              className="border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400 rounded-full px-6"
-              disabled={loading || !!syncing}
-            >
-              {syncing === 'Test Scrape' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
-              Test Scraper
-            </Button>
-            <Button 
-              onClick={async () => {
-                for (const room of data) await deepSyncRoom(room);
-              }} 
-              variant="outline" 
-              className="border-primary/20 hover:bg-primary/10 text-primary rounded-full px-6"
-              disabled={loading || !!syncing}
-            >
-              {syncing && syncing !== 'Test Scrape' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
-              Deep Sync All
-            </Button>
-            <Button 
-              onClick={fetchMedia} 
-              variant="outline" 
-              className="border-white/10 hover:bg-white/5 rounded-full px-6"
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ImageIcon className="w-4 h-4 mr-2" />}
-              Refresh
-            </Button>
-          </div>
-        </header>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-[#080808] text-white selection:bg-primary/30">
+        <AdminSidebar 
+          activeTab={sidebarActiveTab}
+          setActiveTab={setSidebarActiveTab}
+          mode={sidebarMode}
+          setMode={setSidebarMode}
+          activeLodgeFilter={sidebarLodgeFilter}
+          setActiveLodgeFilter={setSidebarLodgeFilter}
+          runMediaSync={fetchMedia}
+          mediaSyncing={loading}
+        />
+        <SidebarInset className="bg-transparent border-l border-white/5">
+          <div className="p-8 md:p-12 space-y-12 max-w-[1600px] mx-auto">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">System Assets</span>
+                  <div className="h-px w-8 bg-primary/20" />
+                </div>
+                <h1 className="text-4xl font-headline italic font-bold">Media Inventory</h1>
+                <p className="text-white/30 text-sm font-medium">Direct access to external sanctuary imagery and automated sync engine.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button 
+                  onClick={testScraper} 
+                  variant="outline" 
+                  className="border-white/10 hover:bg-white/5 text-white/60 rounded-xl h-12 px-6 text-[10px] font-black uppercase tracking-widest"
+                  disabled={loading || !!syncing}
+                >
+                  {syncing === 'Test Scrape' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                  Test Scraper
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    for (const room of data) await deepSyncRoom(room);
+                  }} 
+                  variant="outline" 
+                  className="border-primary/20 hover:bg-primary/10 text-primary rounded-xl h-12 px-6 text-[10px] font-black uppercase tracking-widest"
+                  disabled={loading || !!syncing}
+                >
+                  {syncing && syncing !== 'Test Scrape' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                  Deep Sync All
+                </Button>
+                <Button 
+                  onClick={fetchMedia} 
+                  variant="outline" 
+                  className="border-white/10 hover:bg-white/5 rounded-xl h-12 px-6 text-[10px] font-black uppercase tracking-widest"
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ImageIcon className="w-4 h-4 mr-2" />}
+                  Refresh
+                </Button>
+              </div>
+            </header>
 
-        {error && (
-          <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400">
-            Error: {error}
-          </div>
-        )}
+            {error && (
+              <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-mono text-xs">
+                SYSTEM_ERROR: {error}
+              </div>
+            )}
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-primary font-black uppercase tracking-widest text-[10px]">Scanning Reserve Database...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data.map((room: any, idx: number) => (
-              <Card key={idx} className="bg-black/40 border-white/5 overflow-hidden rounded-3xl group hover:border-primary/30 transition-all duration-500">
-                <CardHeader className="p-6 pb-2">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <Badge variant="outline" className="w-fit border-primary/30 text-primary text-[8px] uppercase tracking-widest px-2">{room.propertyName}</Badge>
-                      <CardTitle className="text-xl font-headline italic text-white group-hover:text-primary transition-colors">{room.roomName}</CardTitle>
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-40 space-y-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
+                  <Loader2 className="w-12 h-12 animate-spin text-primary relative z-10" />
+                </div>
+                <p className="text-primary font-black uppercase tracking-[0.4em] text-[9px] animate-pulse">Scanning Reserve Inventory...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                {data.map((room: any, idx: number) => (
+                  <Card key={idx} className="bg-[#0c0c0c] border border-white/5 overflow-hidden rounded-xl group hover:border-primary/30 transition-all duration-500 shadow-2xl relative">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                      <ImageIcon className="w-12 h-12" />
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => deepSyncRoom(room)}
-                      disabled={!!syncing}
-                      className="text-primary hover:bg-primary/10 h-8 px-3 rounded-full border border-primary/20"
-                    >
-                      {syncing === room.roomName ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                      <span className="ml-2 text-[10px] font-black uppercase tracking-widest">Sync</span>
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 pt-2 space-y-4">
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase text-white/30 tracking-widest">External Assets ({room.urls.length})</p>
-                    <div className="space-y-2">
-                      {room.urls.map((url: string, urlIdx: number) => (
-                        <div key={urlIdx} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-8 h-8 rounded-lg bg-black/40 flex items-center justify-center flex-shrink-0 border border-white/5">
-                              <span className="text-[10px] font-bold text-primary">{urlIdx + 1}</span>
-                            </div>
-                            <span className="text-[10px] text-white/60 truncate font-mono">{url.split('/').pop()?.substring(0, 20)}...</span>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-primary hover:bg-primary/10 rounded-lg" asChild>
-                              <a href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"><ExternalLink className="w-3.5 h-3.5" /></a>
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-400 hover:bg-emerald-400/10 rounded-lg" asChild>
-                              <a href={url} download={`${room.propertyName}-${room.roomName}-${urlIdx+1}.jpg`} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"><Download className="w-3.5 h-3.5" /></a>
-                            </Button>
-                          </div>
+                    <CardHeader className="p-6 pb-2 relative z-10">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <Badge variant="outline" className="w-fit border-white/10 text-white/40 text-[8px] uppercase tracking-widest px-2 font-black">{room.propertyName}</Badge>
+                          <CardTitle className="text-lg font-headline italic text-white group-hover:text-primary transition-colors leading-tight">{room.roomName}</CardTitle>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => deepSyncRoom(room)}
+                          disabled={!!syncing}
+                          className="text-primary hover:bg-primary/10 h-8 px-2 rounded-lg border border-primary/20"
+                        >
+                          {syncing === room.roomName ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-2 space-y-4 relative z-10">
+                      <div className="space-y-2">
+                        <p className="text-[9px] font-black uppercase text-white/20 tracking-widest">External Assets ({room.urls.length})</p>
+                        <div className="space-y-2">
+                          {room.urls.map((url: string, urlIdx: number) => (
+                            <div key={urlIdx} className="flex items-center justify-between p-2.5 bg-black/40 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
+                              <div className="flex items-center gap-2.5 overflow-hidden">
+                                <div className="w-6 h-6 rounded bg-white/5 flex items-center justify-center flex-shrink-0 border border-white/10">
+                                  <span className="text-[9px] font-black text-primary">{urlIdx + 1}</span>
+                                </div>
+                                <span className="text-[10px] text-white/40 truncate font-mono">{url.split('/').pop()?.substring(0, 15)}...</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-white/30 hover:text-primary hover:bg-primary/10 rounded" asChild>
+                                  <a href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"><ExternalLink className="w-3 h-3" /></a>
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-white/30 hover:text-emerald-400 hover:bg-emerald-400/10 rounded" asChild>
+                                  <a href={url} download={`${room.propertyName}-${room.roomName}-${urlIdx+1}.jpg`} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"><Download className="w-3 h-3" /></a>
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

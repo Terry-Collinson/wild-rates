@@ -1,6 +1,36 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+function extractRooms(featuredPrices: any[]) {
+  const roomsMap = new Map<string, { name: string; price: number; images: string[] }>();
+  
+  if (Array.isArray(featuredPrices)) {
+    featuredPrices.forEach((provider: any) => {
+      if (Array.isArray(provider.rooms)) {
+        provider.rooms.forEach((room: any) => {
+          if (room && room.name) {
+            const rawPrice = room.rate_per_night?.extracted_lowest || room.price || 0;
+            const cleanPrice = typeof rawPrice === 'string' 
+              ? parseFloat(rawPrice.replace(/[^0-9.]/g, '')) 
+              : rawPrice;
+            
+            const existing = roomsMap.get(room.name);
+            if (!existing || (cleanPrice > 0 && cleanPrice < existing.price)) {
+              roomsMap.set(room.name, {
+                name: room.name,
+                price: cleanPrice,
+                images: room.images || []
+              });
+            }
+          }
+        });
+      }
+    });
+  }
+  
+  return Array.from(roomsMap.values());
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q') || 'Amakhala Game Reserve';
@@ -80,6 +110,7 @@ export async function GET(request: NextRequest) {
       }, 0);
 
       const cleanPrice = lowestFeatured || serpData.rate_per_night?.extracted_lowest || 0;
+      const rooms = extractRooms(featured);
 
       standardizedResults.push({
         hotelId: serpData.property_token || 'detailed-match',
@@ -91,36 +122,39 @@ export async function GET(request: NextRequest) {
         image: serpData.images?.[0]?.original_image || serpData.images?.[0]?.thumbnail || '',
         isAvailable: cleanPrice > 0,
         statusNote: cleanPrice > 0 ? null : "Inquire Direct",
-        starRating: serpData.rating || 5
+        starRating: serpData.rating || 5,
+        rooms: rooms
       });
     } else {
       const allFound = [
         ...(serpData.ads || []),
         ...(serpData.properties || [])
       ];
-
+ 
       allFound.forEach((prop: any) => {
         const name = prop.name || prop.title || query;
         if (seenNames.has(name)) return;
         seenNames.add(name);
-
+ 
         const featured = prop.featured_prices || [];
         const competitors = featured.map((f: any) => ({
           source: f.source,
           price: f.rate_per_night?.extracted_lowest || 0,
           link: f.link
         }));
-
+ 
         const rawPrice = 
           prop.rate_per_night?.extracted_lowest || 
           prop.rate_per_night?.lowest ||
           prop.extracted_price || 
           prop.price || 
           0;
-
+ 
         const cleanPrice = typeof rawPrice === 'string' 
           ? parseFloat(rawPrice.replace(/[^0-9.]/g, '')) 
           : rawPrice;
+ 
+        const rooms = extractRooms(featured);
 
         standardizedResults.push({
           hotelId: prop.hotel_id || prop.property_token || 'list-item',
@@ -132,7 +166,8 @@ export async function GET(request: NextRequest) {
           image: prop.thumbnail || prop.images?.[0]?.thumbnail || '',
           isAvailable: cleanPrice > 0,
           statusNote: cleanPrice > 0 ? null : "Inquire Direct",
-          starRating: prop.rating || 5
+          starRating: prop.rating || 5,
+          rooms: rooms
         });
       });
     }

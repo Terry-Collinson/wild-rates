@@ -118,5 +118,44 @@ export const INITIAL_LODGES: Lodge[] = [
     "maxCapacity": 4,
     "nightsbridge_id": "PENDING",
     "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "leeuwenbosch-country-house",
+    "name": "Leeuwenbosch Country House",
+    "slug": "leeuwenbosch",
+    "category": "Heritage Manor",
+    "region": "Amakhala",
+    "description": "Historic colonial-style country house built in 1908, offering old-world elegance.",
+    "commissionRate": 0.10,
+    "bookingId": "leeuwenbosch-country-house",
+    "maxCapacity": 6,
+    "nightsbridge_id": "10208",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "woodbury-manor",
+    "name": "Woodbury Manor",
+    "slug": "woodbury-manor",
+    "category": "Exclusive Villa",
+    "region": "Amakhala",
+    "description": "A 5-star exclusive-use safari villa featuring a private chef and ranger.",
+    "commissionRate": 0.10,
+    "bookingId": "woodbury-manor",
+    "maxCapacity": 8,
+    "nightsbridge_id": "37058",
+    "bookingProvider": "NightsBridge"
+  },
+  {
+    "id": "induli-lodge",
+    "name": "Induli Lodge",
+    "slug": "induli-lodge",
+    "category": "Private Eco-Chalet",
+    "region": "Amakhala",
+    "description": "An intimate, eco-friendly luxury retreat overlooking the savanna landscape.",
+    "commissionRate": 0.10,
+    "bookingId": "induli-lodge",
+    "maxCapacity": 6,
+    "nightsbridge_id": "37278",
+    "bookingProvider": "NightsBridge"
   }
 ];

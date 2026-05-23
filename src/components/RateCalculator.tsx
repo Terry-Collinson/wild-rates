@@ -41,7 +41,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc, useProfile } from '@/firebase';
 import { useAnalytics } from '@/firebase/analytics/use-analytics';
 import { collection, addDoc, serverTimestamp, query, where, doc } from 'firebase/firestore';
 import { Lodge, Quote, RoomType } from '@/lib/types';
@@ -66,7 +66,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type Step = 'config' | 'occupancy' | 'status' | 'searching' | 'results' | 'roomSelection' | 'success';
+type Step = 'config' | 'occupancy' | 'searching' | 'results' | 'roomSelection' | 'success';
 
 interface Competitor {
   source: string;
@@ -97,6 +97,7 @@ interface RoomResult {
   memberSaving?: number;
   conservationFuel?: number;
   totalBenefit?: number;
+  rooms?: { name: string; price: number; images?: string[] }[];
 }
 
 const REGIONAL_CONSTANT = "all-amakhala";
@@ -110,19 +111,74 @@ const LODGE_BADGES: Record<string, { label: string, icon: any }> = {
 };
 
 export default function RateCalculator() {
-  const { user } = useUser();
+  const { user, profile } = useProfile();
   const db = useFirestore();
   const policyRef = useMemoFirebase(() => db ? doc(db, 'config', 'booking_policy') : null, [db]);
   const { data: policyConfig } = useDoc<any>(policyRef);
   const { toast } = useToast();
   const { trackEvent } = useAnalytics();
 
+  // Calculate automatic best discount rate
+  const resolvedGeniusMultiplier = useMemo(() => {
+    if (!profile) return 1.0; // Standard baseline
+    
+    const multipliers: number[] = [1.0];
+    
+    // 1. Booking.com Genius
+    if (profile.bookingGeniusLevel === 1) multipliers.push(0.90);
+    else if (profile.bookingGeniusLevel === 2) multipliers.push(0.85);
+    else if (profile.bookingGeniusLevel === 3) multipliers.push(0.80);
+    
+    // 2. Expedia One Key
+    if (profile.expediaOneKeyLevel === 'blue') multipliers.push(0.90);
+    else if (profile.expediaOneKeyLevel === 'silver') multipliers.push(0.85);
+    else if (profile.expediaOneKeyLevel === 'gold-platinum') multipliers.push(0.80);
+    
+    // 3. Agoda VIP
+    if (profile.agodaVipLevel === 'bronze') multipliers.push(1.0);
+    else if (profile.agodaVipLevel === 'silver') multipliers.push(0.90);
+    else if (profile.agodaVipLevel === 'gold') multipliers.push(0.82);
+    else if (profile.agodaVipLevel === 'platinum') multipliers.push(0.75);
+    
+    // 4. Tripadvisor Plus
+    if (profile.tripadvisorPlusActive) multipliers.push(0.85);
+    
+    // 5. Wholesale Trade Tier
+    if (profile.wholesaleTradeTier === 1) multipliers.push(0.80);
+    else if (profile.wholesaleTradeTier === 2) multipliers.push(0.75);
+    else if (profile.wholesaleTradeTier === 3) multipliers.push(0.65);
+    
+    // Return the lowest multiplier (deepest discount)
+    return Math.min(...multipliers);
+  }, [profile]);
+
+  // Determine the display label for the best matched status
+  const resolvedStatusLabel = useMemo(() => {
+    if (!profile) return "Standard Rate Match";
+    
+    const matches: string[] = [];
+    if (profile.bookingGeniusLevel && profile.bookingGeniusLevel > 0) matches.push(`Genius Lvl ${profile.bookingGeniusLevel}`);
+    if (profile.expediaOneKeyLevel && profile.expediaOneKeyLevel !== 'none') matches.push(`One Key ${profile.expediaOneKeyLevel.toUpperCase()}`);
+    if (profile.agodaVipLevel && profile.agodaVipLevel !== 'none') matches.push(`Agoda ${profile.agodaVipLevel.toUpperCase()}`);
+    if (profile.tripadvisorPlusActive) matches.push("Tripadvisor Plus");
+    if (profile.wholesaleTradeTier && profile.wholesaleTradeTier > 0) matches.push(`Wholesale Agent Tier ${profile.wholesaleTradeTier}`);
+    
+    return matches.length > 0 ? `Matched: ${matches.join(" & ")}` : "Standard Rate Match";
+  }, [profile]);
+
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<Step>('config');
   const [sanctuaryId, setSanctuaryId] = useState<string>("");
-  
-  const [startDate, setStartDate] = useState<Date>(new Date(2026, 4, 15));
-  const [endDate, setEndDate] = useState<Date>(new Date(2026, 4, 17));
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const checkIn = new Date();
+    checkIn.setDate(checkIn.getDate() + 2); // 2 days in advance
+    return checkIn;
+  });
+  const [endDate, setEndDate] = useState<Date>(() => {
+    const checkOut = new Date();
+    checkOut.setDate(checkOut.getDate() + 4); // 4 days in advance (2-night stay)
+    return checkOut;
+  });
   
   const [adults, setAdults] = useState<number>(2);
   const [children, setChildren] = useState<number>(0);
@@ -136,7 +192,7 @@ export default function RateCalculator() {
   const [bookingResponse, setBookingResponse] = useState<{id: string, status: string} | null>(null);
   const [showIntegrityDialog, setShowIntegrityDialog] = useState(false);
   const [showNightsbridgePreview, setShowNightsbridgePreview] = useState(false);
-  const [pendingSuite, setPendingSuite] = useState<{displayName: string, price: number, image: string} | null>(null);
+  const [pendingSuite, setPendingSuite] = useState<{displayName: string, price: number, image: string, otaPrice?: number} | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -176,8 +232,7 @@ export default function RateCalculator() {
     const endStr = format(endDate, 'yyyy-MM-dd');
 
     try {
-      const multipliers: Record<number, number> = { 0: 1.0, 1: 0.90, 2: 0.85, 3: 0.80 };
-      const currentGeniusMultiplier = multipliers[geniusLevel];
+      const currentGeniusMultiplier = resolvedGeniusMultiplier;
 
       const queryParam = sanctuaryId === REGIONAL_CONSTANT ? 'Amakhala Game Reserve' : selectedLodge?.name;
       const apiUrl = `/api/rates?q=${encodeURIComponent(queryParam || '')}&arrival=${startStr}&departure=${endStr}&adults=${adults}&rooms=${rooms}&mode=availability`;
@@ -191,7 +246,19 @@ export default function RateCalculator() {
             l.name.toLowerCase().includes(r.name.toLowerCase()) || 
             r.name.toLowerCase().includes(l.name.toLowerCase())
           );
-          return !!matchingLodge || r.name.toLowerCase().includes("amakhala");
+          
+          if (!matchingLodge) {
+            // Keep generic Amakhala matches only if searching the entire region
+            return sanctuaryId === REGIONAL_CONSTANT && r.name.toLowerCase().includes("amakhala");
+          }
+          
+          // If searching regional, return true for all matched lodges
+          if (sanctuaryId === REGIONAL_CONSTANT) {
+            return true;
+          }
+          
+          // If searching a specific property, only return if it matches the chosen sanctuaryId!
+          return matchingLodge.id === sanctuaryId;
         });
 
         const mappedResults = amakhalaOnlyResults.map((r: any) => {
@@ -220,7 +287,10 @@ export default function RateCalculator() {
           };
           
           // 1. Run the Engine
-          const pricing = calculateSafariPrice(roomTotal, adults, childAges, stayNights, safeConfig);
+          const pricing = calculateSafariPrice(roomTotal, adults, childAges, stayNights, {
+              ...safeConfig,
+              geniusMultiplier: currentGeniusMultiplier
+          });
 
           // 2. Calculate the Market (OTA) Version of the same math
           // This ensures "Market PPPN" is never NaN
@@ -265,7 +335,8 @@ export default function RateCalculator() {
             statusNote: r.statusNote,
             competitors: competitors,
             isBestPrice: competitors.length === 0 || competitors.every((c: Competitor) => marketPrice <= c.price),
-            priceBreakdown: pricing
+            priceBreakdown: pricing,
+            rooms: r.rooms || []
           } as RoomResult;
         });
 
@@ -303,7 +374,7 @@ export default function RateCalculator() {
     setStep('roomSelection');
   };
 
-  const handleSecureRate = async (roomName: string, price: number, image: string) => {
+  const handleSecureRate = async (roomName: string, price: number, image: string, otaPrice?: number) => {
     if (!db || !user?.email || !selectedLodgeResult) return;
     setLoading(true);
     // ========================================================
@@ -353,7 +424,7 @@ export default function RateCalculator() {
         userEmail: user.email,
         lodgeId: selectedLodgeResult.lodgeId,
         lodgeName: selectedLodgeResult.lodgeName,
-        otaPrice: selectedLodgeResult.otaPrice,
+        otaPrice: otaPrice ?? selectedLodgeResult.otaPrice,
         memberPrice: price,
         status: 'Pending',
         checkIn: format(startDate, 'yyyy-MM-dd'),
@@ -396,12 +467,11 @@ export default function RateCalculator() {
   const handleStepClick = (targetStepNum: number) => {
     if (targetStepNum === 1) setStep('config');
     if (targetStepNum === 2) setStep('occupancy');
-    if (targetStepNum === 3) setStep('status');
-    if (targetStepNum === 4) {
+    if (targetStepNum === 3) {
       if (results.length > 0) {
         setStep('results');
       } else {
-        toast({ title: "Search Required", description: "Please complete step 3 to view results.", variant: "default" });
+        toast({ title: "Search Required", description: "Please complete occupancy selection and click Compare.", variant: "default" });
       }
     }
   };
@@ -410,20 +480,127 @@ export default function RateCalculator() {
     if (!selectedLodgeResult) return [];
     
     const localLodge = sortedLodges.find(l => l.id === selectedLodgeResult.lodgeId || l.name === selectedLodgeResult.lodgeName);
-    const overrides = localLodge?.adminConfig?.roomOverrides;
+    const overrides = localLodge?.adminConfig?.roomOverrides || {};
     
-    // Combine Ingested Room Types with Admin Overrides for maximum visual depth
-    const uniqueRoomImage = selectedLodgeResult.image || "/api/placeholder/400/300";
+    // 1. If Firestore contains rich room types templates, map them dynamically!
+    if (ingestedRoomTypes && ingestedRoomTypes.length > 0) {
+      return ingestedRoomTypes.map(rt => {
+        // Find override by matching the technical room name key or ID
+        const override = overrides[rt.name] || overrides[rt.id] || Object.entries(overrides).find(([k]) => k.toLowerCase() === rt.name.toLowerCase())?.[1];
+        
+        // Resolve name: override -> fallback to ingested room name
+        const displayName = override?.friendlyName || rt.name;
+        
+        // Resolve description: override -> ingested room description (usually lodge desc) -> standard premium fallback
+        const description = override?.description || rt.description || "Luxury boutique sanctuary suite verified direct. Includes game drives, premium meals, and conservation guardianship.";
+        
+        // Resolve photographs priority list: Override URL -> Synced Local Images -> Raw API Scraped Images
+        const localImagesList = rt.localImages || (rt.localImage ? [rt.localImage] : []);
+        const rawImagesList = rt.images || [];
+        
+        let allImages: string[] = [];
+        if (override?.imageUrl) {
+          allImages.push(override.imageUrl);
+        }
+        if (localImagesList.length > 0) {
+          allImages = [...allImages, ...localImagesList];
+        }
+        if (rawImagesList.length > 0) {
+          allImages = [...allImages, ...rawImagesList];
+        }
+        
+        // Remove duplicates and filter out empty paths
+        allImages = Array.from(new Set(allImages.filter(Boolean)));
+        
+        if (allImages.length === 0) {
+          const fallbackImg = selectedLodgeResult.image || "/api/placeholder/400/300";
+          allImages = [fallbackImg];
+        }
+        
+        const uniqueImage = allImages[0];
+        
+        // Resolve dynamic pricing: Find if this room type matches any real-time scraped room in selectedLodgeResult
+        const scrapedRoom = selectedLodgeResult.rooms?.find(sr => 
+          sr.name.toLowerCase() === rt.name.toLowerCase() || 
+          rt.name.toLowerCase().includes(sr.name.toLowerCase()) ||
+          sr.name.toLowerCase().includes(rt.name.toLowerCase())
+        );
+        
+        let suiteOtaPrice = selectedLodgeResult.otaPrice;
+        let suiteHeroPrice = selectedLodgeResult.heroPrice;
+        let suiteTotalStayCost = selectedLodgeResult.totalStayCost;
+        let suiteMemberSaving = selectedLodgeResult.memberSaving;
+        let suiteConservationFuel = selectedLodgeResult.conservationFuel;
+        let suiteTotalBenefit = selectedLodgeResult.totalBenefit;
+        
+        if (scrapedRoom && scrapedRoom.price > 0) {
+          const stayNights = differenceInDays(endDate, startDate) || 1;
+          const safeConfig = policyConfig || {
+              weight_adult: 1.0,
+              weight_child_infant_age_max: 2,
+              weight_child_infant_factor: 0,
+              weight_child_minor_age_max: 11,
+              weight_child_minor_factor: 0.5,
+              weight_single_occupancy: 1.0,
+              levy_cons_pppn_zar: 210,
+              hero_guarantee_multiplier: 0.95,
+              ota_commission_rate: 0.15,
+              member_discount_rate: 0.05
+          };
+          
+          const pricing = calculateSafariPrice(scrapedRoom.price, adults, childAges, stayNights, {
+              ...safeConfig,
+              geniusMultiplier: resolvedGeniusMultiplier
+          });
+          
+          const marketBarePPS = pricing.barePPS * resolvedGeniusMultiplier; 
+          suiteOtaPrice = marketBarePPS + (safeConfig?.levy_cons_pppn_zar || 210);
+          suiteHeroPrice = pricing.heroPrice;
+          suiteTotalStayCost = pricing.totalStayCost;
+          suiteMemberSaving = pricing.memberSaving;
+          suiteConservationFuel = pricing.conservationFuel;
+          suiteTotalBenefit = pricing.totalBenefit;
+        }
+        
+        return {
+          technicalName: rt.id,
+          displayName,
+          description,
+          image: uniqueImage,
+          allImages,
+          otaPrice: suiteOtaPrice,
+          heroPrice: suiteHeroPrice,
+          totalStayCost: suiteTotalStayCost,
+          memberSaving: suiteMemberSaving,
+          conservationFuel: suiteConservationFuel,
+          totalBenefit: suiteTotalBenefit
+        };
+      });
+    }
+    
+    // 2. Fallback: Default to live API matched room type details
+    const override = overrides[selectedLodgeResult.name] || Object.entries(overrides).find(([k]) => k.toLowerCase() === selectedLodgeResult.name.toLowerCase())?.[1];
+    
+    const displayName = override?.friendlyName || selectedLodgeResult.name;
+    const description = override?.description || "Direct inventory match verified via Google Hotels API. Includes all-inclusive meals, game drives, and conservation guardianship.";
+    const uniqueRoomImage = override?.imageUrl || selectedLodgeResult.image || "/api/placeholder/400/300";
+    
     return [
       { 
         technicalName: "api-match", 
-        displayName: selectedLodgeResult.name, 
-        description: "Direct inventory match verified via Google Hotels API. Includes all-inclusive meals, game drives, and conservation guardianship.", 
+        displayName, 
+        description, 
         image: uniqueRoomImage, 
-        allImages: [uniqueRoomImage] 
+        allImages: [uniqueRoomImage],
+        otaPrice: selectedLodgeResult.otaPrice,
+        heroPrice: selectedLodgeResult.heroPrice,
+        totalStayCost: selectedLodgeResult.totalStayCost,
+        memberSaving: selectedLodgeResult.memberSaving,
+        conservationFuel: selectedLodgeResult.conservationFuel,
+        totalBenefit: selectedLodgeResult.totalBenefit
       }
     ];
-  }, [selectedLodgeResult, sortedLodges, ingestedRoomTypes]);
+  }, [selectedLodgeResult, sortedLodges, ingestedRoomTypes, startDate, endDate, policyConfig, resolvedGeniusMultiplier, adults, childAges]);
 
   if (!mounted) return null;
 
@@ -434,24 +611,23 @@ export default function RateCalculator() {
         <p className="text-primary font-bold tracking-[0.2em] uppercase text-xs">GUARANTEED 5% BELOW ANY GLOBAL PLATFORM PRICE (PPPN)</p>
       </div>
 
-      {['config', 'occupancy', 'status', 'searching', 'results', 'roomSelection'].includes(step) && (
-        <div className="flex justify-between items-center mb-12 max-w-md mx-auto relative">
+      {['config', 'occupancy', 'searching', 'results', 'roomSelection'].includes(step) && (
+        <div className="flex justify-between items-center mb-12 max-w-sm mx-auto relative">
           <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/5 -translate-y-1/2 z-0" />
-          {[1, 2, 3, 4].map((num) => {
+          {[1, 2, 3].map((num) => {
             let active = false;
             if (num === 1 && step === 'config') active = true;
             if (num === 2 && step === 'occupancy') active = true;
-            if (num === 3 && step === 'status') active = true;
-            if (num === 4 && (step === 'results' || step === 'roomSelection')) active = true;
+            if (num === 3 && (step === 'results' || step === 'roomSelection')) active = true;
             
-            const completed = (num === 1 && step !== 'config') || (num === 2 && !['config', 'occupancy'].includes(step)) || (num === 3 && ['results', 'roomSelection', 'success'].includes(step));
-            const clickable = num !== 4 || results.length > 0;
+            const completed = (num === 1 && step !== 'config') || (num === 2 && !['config', 'occupancy'].includes(step));
+            const clickable = num !== 3 || results.length > 0;
 
             return (
               <button 
                 key={num} 
                 onClick={() => clickable && handleStepClick(num)}
-                disabled={!clickable && num === 4}
+                disabled={!clickable && num === 3}
                 className={`w-8 h-8 rounded-full z-10 flex items-center justify-center text-xs font-bold transition-all ${
                   active 
                     ? 'bg-primary text-primary-foreground scale-110 shadow-lg shadow-primary/20' 
@@ -629,49 +805,6 @@ export default function RateCalculator() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
-              <Button className="flex-1 h-14 bg-primary text-primary-foreground rounded-full font-bold text-lg" onClick={() => setStep('status')}>Match My Status</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 'status' && (
-        <Card className="glass-card max-w-2xl mx-auto border-white/5 bg-black/40">
-          <CardHeader className="text-center pb-8 pt-10">
-            <CardTitle className="text-3xl font-headline italic">Platform Status Match</CardTitle>
-            <p className="text-muted-foreground text-sm">Select your platform tier to guarantee your member discount.</p>
-          </CardHeader>
-          <CardContent className="space-y-6 px-10 pb-10">
-            <div className="grid grid-cols-1 gap-3">
-              {[0, 1, 2, 3].map((level) => (
-                <div 
-                  key={level}
-                  onClick={() => setGeniusLevel(level)}
-                  className={`flex items-center gap-6 p-5 rounded-2xl border transition-all cursor-pointer group ${
-                    geniusLevel === level 
-                    ? 'border-primary bg-primary/10' 
-                    : 'border-white/5 bg-white/5 hover:border-white/20'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${geniusLevel === level ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-muted-foreground'}`}>
-                    {level === 0 ? <Users className="w-6 h-6" /> : <Crown className="w-6 h-6" />}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-white text-lg">{level === 0 ? "Standard Member" : `Genius Level ${level}`}</h4>
-                    <p className="text-xs text-muted-foreground">
-                      {level === 0 ? "Public list rates" : `${level === 1 ? '10%' : level === 2 ? '15%' : '20%'} Automatic platform discount`}
-                    </p>
-                  </div>
-                  {geniusLevel === level && <CheckCircle2 className="w-6 h-6 text-primary" />}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button variant="ghost" onClick={() => setStep('occupancy')} className="h-14 px-6 text-muted-foreground">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
               <Button className="flex-1 h-14 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-bold text-lg group" onClick={fetchHeroRates}>
                 Compare Sanctuaries <Sparkles className="ml-2 w-5 h-5 group-hover:rotate-12 transition-transform" />
               </Button>
@@ -688,7 +821,7 @@ export default function RateCalculator() {
             <ShieldCheck className="absolute inset-0 m-auto w-10 h-10 text-primary" />
           </div>
           <h2 className="text-3xl font-headline italic text-white">
-            Matching Status: {geniusLevel > 0 ? `Genius Lvl ${geniusLevel}` : 'Standard'}
+            Status Parity: {resolvedStatusLabel}
           </h2>
           <p className="text-muted-foreground italic">
             Connecting to Universal Market Intelligence engine...
@@ -778,7 +911,7 @@ export default function RateCalculator() {
 
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-white/5 pb-8">
             <div className="flex items-center gap-4">
-              <button onClick={() => handleStepClick(3)} className="rounded-full p-2 text-white/60 hover:text-white hover:bg-white/5 transition-colors">
+              <button onClick={() => handleStepClick(2)} className="rounded-full p-2 text-white/60 hover:text-white hover:bg-white/5 transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="space-y-1">
@@ -790,7 +923,7 @@ export default function RateCalculator() {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Crown className="w-3 h-3 text-primary" /> 
-                    {geniusLevel > 0 ? `Matched: Genius Lvl ${geniusLevel}` : 'Standard Rate Match'}
+                    {resolvedStatusLabel}
                   </span>
                 </div>
               </div>
@@ -815,6 +948,7 @@ export default function RateCalculator() {
                           src={room.image} priority={index < 3} 
                           alt={room.lodgeName} 
                           fill 
+                          unoptimized
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                           className="object-cover group-hover:scale-105 transition-transform duration-700"
                         />
@@ -880,30 +1014,30 @@ export default function RateCalculator() {
                                         <Info className="w-3 h-3 text-muted-foreground group-hover/total:text-primary transition-colors" />
                                       </div>
                                     </TooltipTrigger>
-                                    <TooltipContent className="glass-card border-white/10 bg-black p-4 shadow-2xl z-50">
-                                      <div className="space-y-2 text-[11px] font-medium min-w-[200px]">
-                                        <p className="text-white/40 uppercase text-[9px] font-black tracking-tighter border-b border-white/5 pb-1 mb-2">Price Breakdown</p>
+                                    <TooltipContent className="border border-white/10 bg-[#070c09] p-4 shadow-2xl rounded-xl z-50 text-white min-w-[220px]">
+                                      <div className="space-y-2.5 text-[11px] font-medium">
+                                        <p className="text-white/40 uppercase text-[9px] font-black tracking-tighter border-b border-white/5 pb-1.5 mb-2">Price Breakdown</p>
                                         <div className="flex justify-between gap-8">
                                           <span className="text-white/60">Adult Rate</span>
-                                          <span className="text-white">
+                                          <span className="text-white font-mono">
                                             R{Math.round(room.priceBreakdown?.breakdown?.adultRate || 0).toLocaleString()} x {room.priceBreakdown?.breakdown?.adults || 0}
                                           </span>
                                         </div>
                                         {(room.priceBreakdown?.breakdown?.children || 0) > 0 && (
                                           <div className="flex justify-between gap-8">
                                             <span className="text-white/60">Child Rate</span>
-                                            <span className="text-white">
+                                            <span className="text-white font-mono">
                                               R{Math.round(room.priceBreakdown?.breakdown?.childRate || 0).toLocaleString()} x {room.priceBreakdown?.breakdown?.children}
                                             </span>
                                           </div>
                                         )}
                                         <div className="flex justify-between gap-8">
                                           <span className="text-white/60">Conservation Levy</span>
-                                          <span className="text-white">
+                                          <span className="text-white font-mono">
                                             R{Math.round(room.priceBreakdown?.breakdown?.levy || 0).toLocaleString()} x {room.priceBreakdown?.breakdown?.totalPeople || 0}
                                           </span>
                                         </div>
-                                        <div className="flex justify-between gap-8 pt-2 border-t border-white/10 font-bold">
+                                        <div className="flex justify-between gap-8 pt-2.5 border-t border-white/10 font-bold">
                                           <span className="text-primary uppercase text-[9px]">Total (Inc. Levies)</span>
                                           <span className="text-white font-headline italic text-sm">R{Math.round(room.totalStayCost).toLocaleString()}</span>
                                         </div>
@@ -1106,12 +1240,12 @@ export default function RateCalculator() {
                       <div className="h-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar scroll-smooth">
                         {suite.allImages.map((img, i) => (
                           <div key={i} className="flex-none w-full h-full relative snap-center">
-                            <Image src={img} alt={`${suite.displayName} - ${i}`} fill className="object-cover" />
+                            <Image src={img} alt={`${suite.displayName} - ${i}`} fill unoptimized className="object-cover" />
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <Image src={suite.image} alt={suite.displayName} fill className="object-cover group-hover:scale-105 transition-transform duration-1000" />
+                      <Image src={suite.image} alt={suite.displayName} fill unoptimized className="object-cover group-hover:scale-105 transition-transform duration-1000" />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/40" />
                     {suite.allImages && suite.allImages.length > 1 && (
@@ -1148,12 +1282,12 @@ export default function RateCalculator() {
                       <div className="flex flex-col text-center md:text-left">
                         <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">Confirmed Wild Rate ({selectedLodgeResult.displayLabel})</span>
                         <div className="flex items-baseline gap-2">
-                           <span className="text-4xl font-bold text-white">R{Math.round(selectedLodgeResult.heroPrice).toLocaleString()}</span>
+                           <span className="text-4xl font-bold text-white">R{Math.round(suite.heroPrice).toLocaleString()}</span>
                            <span className="text-[10px] text-primary font-bold uppercase">All-Inclusive</span>
                         </div>
-                        {selectedLodgeResult.totalStayCost && (
+                        {suite.totalStayCost && (
                           <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">
-                            Total Stay: R{Math.round(selectedLodgeResult.totalStayCost).toLocaleString('en-ZA')}
+                            Total Stay: R{Math.round(suite.totalStayCost).toLocaleString('en-ZA')}
                           </span>
                         )}
                       </div>
@@ -1161,7 +1295,7 @@ export default function RateCalculator() {
                       <Dialog open={showNightsbridgePreview && pendingSuite?.displayName === suite.displayName} onOpenChange={(open) => { if (!open) { setShowNightsbridgePreview(false); setPendingSuite(null); } }}>
                         <DialogTrigger asChild>
                           <Button
-                            onClick={() => { setPendingSuite({ displayName: suite.displayName, price: selectedLodgeResult.heroPrice, image: suite.image }); setShowNightsbridgePreview(true); }}
+                            onClick={() => { setPendingSuite({ displayName: suite.displayName, price: suite.heroPrice, image: suite.image, otaPrice: suite.otaPrice }); setShowNightsbridgePreview(true); }}
                             className="w-full md:w-auto rounded-full bg-primary text-primary-foreground font-black h-16 px-12 text-lg shadow-xl shadow-primary/20 hover:scale-105 transition-transform"
                           >
                             Secure This Selection
@@ -1199,7 +1333,7 @@ export default function RateCalculator() {
   children: children,
   child_ages: childAges,
   rate_code: "WILDLIFEHERO-DIRECT",
-  total_zar: Math.round(selectedLodgeResult?.totalStayCost ?? 0),
+  total_zar: Math.round(suite?.totalStayCost ?? 0),
   currency: "ZAR",
   guest: {
     email: user?.email ?? "member@example.com",
@@ -1256,7 +1390,7 @@ export default function RateCalculator() {
                                 disabled={loading}
                                 onClick={() => {
                                   setShowNightsbridgePreview(false);
-                                  if (pendingSuite) handleSecureRate(pendingSuite.displayName, pendingSuite.price, pendingSuite.image);
+                                  if (pendingSuite) handleSecureRate(pendingSuite.displayName, pendingSuite.price, pendingSuite.image, pendingSuite.otaPrice);
                                 }}
                               >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><ShieldCheck className="w-4 h-4 mr-2" /> Confirm & Submit Quote</>}
@@ -1288,7 +1422,7 @@ export default function RateCalculator() {
 
             <div className="p-6 bg-black/40 rounded-3xl border border-white/5 text-left flex items-center gap-6">
                <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-white/10 shrink-0">
-                  <Image src={finalSelectedRoom.image} alt={finalSelectedRoom.name} fill className="object-cover" />
+                  <Image src={finalSelectedRoom.image} alt={finalSelectedRoom.name} fill unoptimized className="object-cover" />
                </div>
                <div className="space-y-1">
                   <p className="text-sm font-headline italic text-white">{selectedLodgeResult.lodgeName}</p>
