@@ -13,27 +13,9 @@ import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
+import { AdminContext, AdminContextType } from './context';
+
 const ADMIN_EMAILS = ['reservations@amakhala.com', 'terry_collinson@debono.net'];
-
-interface AdminContextType {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-  mode: 'operations' | 'systems';
-  setMode: (mode: 'operations' | 'systems') => void;
-  activeLodgeFilter: string;
-  setActiveLodgeFilter: (filter: string) => void;
-  mediaSyncing: boolean;
-  setMediaSyncing: (syncing: boolean) => void;
-  isSuperAdmin: boolean;
-}
-
-const AdminContext = createContext<AdminContextType | undefined>(undefined);
-
-export const useAdmin = () => {
-  const context = useContext(AdminContext);
-  if (!context) throw new Error('useAdmin must be used within an AdminProvider');
-  return context;
-};
 
 export default function AdminLayout({
   children,

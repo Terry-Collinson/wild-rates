@@ -45,36 +45,8 @@ export function initializeFirebase(): {
 
   // 2. Get or initialize Firestore
   if (!globalForFirebase.db) {
-    let db: Firestore;
-    if (typeof window !== 'undefined') {
-      const { initializeFirestore, persistentLocalCache, persistentSingleTabManager } = require('firebase/firestore');
-      
-      // Check if we are running in local development mode
-      const isDev = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
-      
-      if (isDev) {
-        // High-Stability Memory Cache for Development:
-        // Bypasses Next.js Fast Refresh hot-reload lock collisions and IndexedDB tree-traversal corruption entirely.
-        db = getFirestore(app);
-        console.log('Firebase Init: High-Stability Memory Cache enabled (Development Mode).');
-      } else {
-        // Production Mode Resilient Offline Persistent Cache:
-        try {
-          db = initializeFirestore(app, {
-            localCache: persistentLocalCache({
-              tabManager: persistentSingleTabManager({ forceOwnership: true })
-            })
-          });
-          console.log('Firebase Init: Resilient Persistent IndexedDB Cache enabled (Production Mode).');
-        } catch (err) {
-          console.warn('Firebase Init: Persistent cache failed to initialize, falling back to memory cache.', err);
-          db = getFirestore(app);
-        }
-      }
-    } else {
-      db = getFirestore(app);
-    }
-    globalForFirebase.db = db;
+    globalForFirebase.db = getFirestore(app);
+    console.log('Firebase Init: High-Stability Memory Cache enabled.');
   }
   const db = globalForFirebase.db;
 

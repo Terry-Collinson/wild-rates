@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import MarketIntelligence from '@/components/admin/MarketIntelligence';
 import UserManagement from '@/components/admin/UserManagement';
 import { cn } from '@/lib/utils';
-import { useAdmin } from './layout';
+import { useAdmin } from './context';
 
 const StatCard = ({ title, value, trend, icon }: { title: string, value: any, trend: string, icon: any }) => (
   <Card className="glass-card border-white/5 bg-white/[0.02] p-6 rounded-2xl">
