@@ -102,7 +102,7 @@ export function processHotelScrape(rawData: any) {
         name: room.name,
         images: room.images || [],
         max_guests: room.num_guests || 2,
-        description: raw.description || 'Luxury Sanctuary Suite',
+        description: room.description || room.roomDescription || generateRoomDescription(room.name, hotel.name || raw.name || 'Amakhala'),
       });
 
       // 5. MARKET RATE DOC (Dynamic Pulse - PPPN Normalized)
@@ -132,4 +132,23 @@ export function processHotelScrape(rawData: any) {
   });
 
   return { propertyDoc, roomTypes, marketRates };
+}
+
+export function generateRoomDescription(roomName: string, lodgeName: string): string {
+  const name = roomName.toLowerCase();
+  
+  if (name.includes('tent') || name.includes('canvas')) {
+    return `An elegant canvas oasis at ${lodgeName}. Features premium draped tents, a private wooden viewing deck overlooking the reserve, and an en-suite bathroom with an outdoor shower. Includes two daily game drives, all luxury meals, and conservation guardianship.`;
+  }
+  if (name.includes('family') || name.includes('villa') || name.includes('manor')) {
+    return `Spacious luxury designed for families or small groups at ${lodgeName}. Offers multiple bedrooms, expansive living areas, private deck with panoramic views, and a dedicated ranger. Includes two daily game drives, all meals, and reserve protection fees.`;
+  }
+  if (name.includes('honeymoon') || name.includes('executive') || name.includes('superior') || name.includes('pool')) {
+    return `The ultimate premium sanctuary at ${lodgeName}. Boasts a private plunge pool, expansive lounge area, wood-burning fireplace, and breathtaking wilderness views. Includes premium game drives, dining, and direct conservation support.`;
+  }
+  if (name.includes('suite')) {
+    return `A beautifully appointed luxury suite at ${lodgeName}. Integrates glass-fronted views, private observation deck, bespoke African styling, and premium amenities. Includes two daily game drives, all-inclusive dining, and conservation guardianship.`;
+  }
+  
+  return `Luxury boutique accommodations at ${lodgeName}. Exquisitely finished, verified direct matching. Includes two daily game drives, premium local cuisine, and direct conservation guardianship.`;
 }
