@@ -546,7 +546,7 @@ export default function RateCalculator() {
         // Resolve description: override -> ingested room description (usually lodge desc) -> standard premium fallback
         const description = override?.description || rt.description || "Luxury boutique lodge suite verified direct. Includes game drives, premium meals, and conservation guardianship.";
         
-        // Resolve photographs priority list: Override URL -> Synced Local Images -> Raw API Scraped Images
+        // Resolve photographs priority list: Override URL -> Raw API Google CDN Images -> Synced Local Images
         const localImagesList = rt.localImages || (rt.localImage ? [rt.localImage] : []);
         const rawImagesList = rt.images || [];
         
@@ -554,11 +554,13 @@ export default function RateCalculator() {
         if (override?.imageUrl) {
           allImages.push(override.imageUrl);
         }
-        if (localImagesList.length > 0) {
-          allImages = [...allImages, ...localImagesList];
-        }
         if (rawImagesList.length > 0) {
           allImages = [...allImages, ...rawImagesList];
+        }
+        if (localImagesList.length > 0) {
+          // Bouncer: Skip the broken local scraped 403 HTML placeholders
+          const cleanLocal = localImagesList.filter(img => !img.startsWith('/assets/lodges/'));
+          allImages = [...allImages, ...cleanLocal];
         }
         
         // Remove duplicates and filter out empty paths
