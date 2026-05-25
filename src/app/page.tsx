@@ -72,7 +72,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
             <Link href="/portal">
               <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 h-14 group rounded-full font-bold shadow-xl">
-                Enter Member Portal
+                Enter Rate Calculator
                 <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

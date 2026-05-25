@@ -149,7 +149,7 @@ export default function Navbar() {
             </div>
             {isPortal ? (
               <div className="flex flex-col">
-                <span className="text-xl font-headline font-bold text-white tracking-tight leading-none">Member Portal</span>
+                <span className="text-xl font-headline font-bold text-white tracking-tight leading-none">Rate Calculator</span>
                 <span className="text-primary font-bold tracking-[0.2em] uppercase text-[10px] mt-1">Direct Conservation Rates</span>
               </div>
             ) : (
@@ -194,7 +194,7 @@ export default function Navbar() {
                   <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer py-3 rounded-lg">
                     <Link href="/portal" className="flex items-center gap-3 w-full">
                       <Home className="w-4 h-4 text-primary" />
-                      <span>Member Portal</span>
+                      <span>Rate Calculator</span>
                     </Link>
                   </DropdownMenuItem>
 
