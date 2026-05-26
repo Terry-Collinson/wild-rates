@@ -672,7 +672,7 @@ export default function RateCalculator() {
   if (!mounted) return null;
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4 relative">
+    <div className="max-w-6xl mx-auto pt-0 pb-8 px-4 relative">
       <div className="text-center space-y-3 mb-12">
         <h1 className="text-4xl md:text-5xl font-headline font-bold text-white">Hero Rate Generator</h1>
         <p className="text-primary font-bold tracking-[0.2em] uppercase text-xs">GUARANTEED 5% BELOW ANY GLOBAL PLATFORM PRICE (PPPN)</p>

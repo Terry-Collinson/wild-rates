@@ -61,7 +61,7 @@ export default function PortalPage() {
     <main className="min-h-screen pb-24">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 mt-28 space-y-12">
+      <div className="max-w-7xl mx-auto px-4 mt-6 space-y-12">
         <RateCalculator />
 
         <div className="space-y-6">
