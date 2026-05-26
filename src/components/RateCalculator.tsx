@@ -1305,8 +1305,8 @@ export default function RateCalculator() {
 
            <div className="grid grid-cols-1 gap-8 max-w-5xl mx-auto">
               {sanctuarySuites.map((suite, idx) => (
-                <Card key={idx} className="glass-card border-white/5 bg-black/40 overflow-hidden flex flex-col md:flex-row group hover:border-primary/40 transition-all shadow-2xl relative">
-                  <div className="w-full md:w-1/2 aspect-[4/3] md:aspect-auto relative overflow-hidden bg-black/20">
+                <Card key={idx} className="glass-card border-white/5 bg-black/40 overflow-hidden flex flex-col md:flex-row group hover:border-primary/40 transition-all shadow-2xl relative items-stretch">
+                  <div className="w-full md:w-[45%] aspect-[4/3] relative overflow-hidden bg-black/20 shrink-0">
                     {suite.allImages && suite.allImages.length > 1 ? (
                       <div className="h-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar scroll-smooth">
                         {suite.allImages.map((img, i) => (
@@ -1319,13 +1319,6 @@ export default function RateCalculator() {
                       <Image src={suite.image} alt={suite.displayName} fill unoptimized className="object-cover group-hover:scale-105 transition-transform duration-1000" />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/40" />
-                    {suite.allImages && suite.allImages.length > 1 && (
-                       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-                          {suite.allImages.map((_, i) => (
-                            <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                          ))}
-                       </div>
-                    )}
                   </div>
                   <CardContent className="flex-1 p-10 flex flex-col justify-between">
                     <div className="space-y-6">
