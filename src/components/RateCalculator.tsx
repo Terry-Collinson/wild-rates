@@ -191,12 +191,26 @@ export default function RateCalculator() {
   const [loading, setLoading] = useState(false);
   const [bookingResponse, setBookingResponse] = useState<{id: string, status: string} | null>(null);
   const [showIntegrityDialog, setShowIntegrityDialog] = useState(false);
+  const [isHoveringIntegrity, setIsHoveringIntegrity] = useState(false);
   const [showNightsbridgePreview, setShowNightsbridgePreview] = useState(false);
   const [pendingSuite, setPendingSuite] = useState<{displayName: string, price: number, image: string, otaPrice?: number} | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Smart Auto-Close Timer for Price Integrity Dialog (closes after 5 seconds unless hovered over)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showIntegrityDialog && !isHoveringIntegrity) {
+      timer = setTimeout(() => {
+        setShowIntegrityDialog(false);
+      }, 5000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showIntegrityDialog, isHoveringIntegrity]);
 
   const lodgesQuery = useMemoFirebase(() => db ? collection(db, 'lodges') : null, [db]);
   const { data: rawLodges } = useCollection<Lodge>(lodgesQuery);
@@ -886,7 +900,11 @@ export default function RateCalculator() {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
           {results.length > 0 && (
             <Dialog open={showIntegrityDialog} onOpenChange={setShowIntegrityDialog}>
-              <DialogContent className="glass-card border-white/10 bg-[#0a0a0a] text-white max-w-lg overflow-hidden p-0">
+              <DialogContent 
+                className="glass-card border-white/10 bg-[#0a0a0a] text-white max-w-lg overflow-hidden p-0"
+                onMouseEnter={() => setIsHoveringIntegrity(true)}
+                onMouseLeave={() => setIsHoveringIntegrity(false)}
+              >
                 <div className="bg-primary/10 p-6 border-b border-white/5">
                   <DialogHeader>
                     <DialogTitle className="text-2xl font-headline italic flex items-center gap-2 text-white">
