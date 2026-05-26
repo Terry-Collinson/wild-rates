@@ -40,13 +40,13 @@ async function run() {
   
   lodgesSnap.forEach(d => {
     const data = d.data();
-    if (data.google_hotel_id && data.name) {
+    if (data.name) {
       let folderName = toKebabCase(data.name.split('-')[0].trim());
       if (folderName === 'amakhala-bush-lodge') folderName = 'bush-lodge-amakhala';
       
       lodges.push({
         id: d.id,
-        googleHotelId: data.google_hotel_id,
+        googleHotelId: data.google_hotel_id || d.id,
         name: data.name,
         folder: folderName
       });
