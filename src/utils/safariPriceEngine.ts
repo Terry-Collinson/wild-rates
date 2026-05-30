@@ -21,10 +21,11 @@ export const calculateSafariPrice = (
     const safeWeight = weight > 0 ? weight : 1;
 
     // 3. The Math
-    // Note: roomTotal from Google Hotels API/SerpApi represents the NIGHTLY room rate.
-    const dailyTotal = roomTotal;
-    const bareAdultPPS = dailyTotal / safeWeight;
-    const totalRoomBase = roomTotal * safeNights;
+    // Note: Since all Amakhala properties are luxury safari lodges, the roomTotal from 
+    // Google Hotels API/SerpApi represents the NIGHTLY Per Person Sharing (PPS) rate.
+    const bareAdultPPS = roomTotal;
+    const dailyRoomRate = bareAdultPPS * safeWeight;
+    const totalRoomBase = dailyRoomRate * safeNights;
 
     // 4. Value Metrics (Dynamic Policy & Genius Auto-Beat)
     const otaCommissionRate = config?.ota_commission_rate || 0.15;
