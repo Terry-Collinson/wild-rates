@@ -194,6 +194,41 @@ export default function RateCalculator() {
   const [isHoveringIntegrity, setIsHoveringIntegrity] = useState(false);
   const [showNightsbridgePreview, setShowNightsbridgePreview] = useState(false);
   const [pendingSuite, setPendingSuite] = useState<{displayName: string, price: number, image: string, otaPrice?: number} | null>(null);
+  const [checkoutPayload, setCheckoutPayload] = useState<any>(null);
+
+  const executeCheckoutRedirect = () => {
+    if (!checkoutPayload) return;
+    const { method, targetUrl, payload } = checkoutPayload;
+
+    if (method === 'POST') {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = targetUrl;
+      form.target = '_blank';
+
+      Object.entries(payload).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = String(value);
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    } else {
+      try {
+        const url = new URL(targetUrl);
+        Object.entries(payload).forEach(([key, value]) => {
+          url.searchParams.append(key, String(value));
+        });
+        window.open(url.toString(), '_blank');
+      } catch (e) {
+        window.open(targetUrl, '_blank');
+      }
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -486,6 +521,21 @@ export default function RateCalculator() {
     });
 
     try {
+      // 1. Query the backend checkout routing switch (NightsBridge vs Profitroom)
+      const checkoutRes = await fetch('/api/booking/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: selectedLodgeResult.lodgeId,
+          checkIn: format(startDate, 'yyyy-MM-dd'),
+          checkOut: format(endDate, 'yyyy-MM-dd'),
+          adults: adults,
+          children: children,
+          childAges: childAges
+        })
+      });
+      const checkoutData = await checkoutRes.json();
+
       const quoteData: Quote = {
         userEmail: user.email,
         lodgeId: selectedLodgeResult.lodgeId,
@@ -504,12 +554,12 @@ export default function RateCalculator() {
       
       await addDoc(collection(db, 'quotes'), quoteData);
       
-      // MOCK NIGHTSBRIDGE RESPONSE PLACEHOLDER
-      // This simulates the unique ID we would get back from their API
-      const mockNightsbridgeId = "NB-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+      // Store checkout payload for redirection
+      setCheckoutPayload(checkoutData);
+      
       setBookingResponse({
-        id: mockNightsbridgeId,
-        status: "Confirmed by NightsBridge"
+        id: checkoutData.payload?.token || "NB-" + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        status: checkoutData.routingCode || "Confirmed"
       });
 
       setFinalSelectedRoom({ name: roomName, price, image });
@@ -1504,11 +1554,19 @@ export default function RateCalculator() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button onClick={() => handleStepClick(1)} variant="outline" className="text-white border-white/10 hover:bg-white/5 rounded-full px-12 h-14 font-bold transition-all">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              {checkoutPayload && (
+                <Button 
+                  onClick={executeCheckoutRedirect} 
+                  className="bg-amber-500 hover:bg-amber-600 text-black font-black rounded-full px-8 h-14 transition-all shadow-xl shadow-amber-500/20 flex items-center gap-2"
+                >
+                  <Zap className="w-4 h-4 fill-current" /> Proceed to Secure Checkout
+                </Button>
+              )}
+              <Button onClick={() => handleStepClick(1)} variant="outline" className="text-white border-white/10 hover:bg-white/5 rounded-full px-8 h-14 font-bold transition-all">
                 New Discovery
               </Button>
-              <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-12 h-14 font-bold transition-all shadow-xl shadow-primary/20">
+              <Button asChild variant="ghost" className="text-muted-foreground hover:text-white rounded-full px-8 h-14 font-bold transition-all">
                 <a href="/portal">View My History</a>
               </Button>
             </div>
