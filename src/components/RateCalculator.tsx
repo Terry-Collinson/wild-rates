@@ -521,12 +521,15 @@ export default function RateCalculator() {
     });
 
     try {
+      const localLodge = sortedLodges.find(l => l.id === selectedLodgeResult.lodgeId || l.name === selectedLodgeResult.lodgeName);
+      const resolvedLodgeId = localLodge?.id || selectedLodgeResult.lodgeId;
+
       // 1. Query the backend checkout routing switch (NightsBridge vs Profitroom)
       const checkoutRes = await fetch('/api/booking/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          propertyId: selectedLodgeResult.lodgeId,
+          propertyId: resolvedLodgeId,
           checkIn: format(startDate, 'yyyy-MM-dd'),
           checkOut: format(endDate, 'yyyy-MM-dd'),
           adults: adults,
@@ -1418,8 +1421,13 @@ export default function RateCalculator() {
                         </DialogTrigger>
                         <DialogContent className="glass-card border-white/10 bg-[#080808] text-white max-w-2xl overflow-hidden p-0 max-h-[90vh] overflow-y-auto">
                           {(() => {
-                            const isProfitroom = ['336715', '336709', 'hlosi', 'bukela'].includes(selectedLodgeResult?.lodgeId?.toLowerCase() || '');
-                            const hotelId = selectedLodgeResult?.lodgeId === '336709' ? 'bukelagamelodge' : 'hlosigamelodge';
+                            const localLodge = sortedLodges.find(l => l.id === selectedLodgeResult?.lodgeId || l.name === selectedLodgeResult?.lodgeName);
+                            const resolvedLodgeId = localLodge?.id || selectedLodgeResult?.lodgeId || '';
+                            const isProfitroom = localLodge?.bookingProvider === 'ProfitRoom' || 
+                              ['336715', '336709', 'hlosi', 'bukela'].includes(resolvedLodgeId.toLowerCase()) || 
+                              selectedLodgeResult?.lodgeName?.toLowerCase().includes('hlosi') || 
+                              selectedLodgeResult?.lodgeName?.toLowerCase().includes('bukela');
+                            const hotelId = resolvedLodgeId === '336709' || selectedLodgeResult?.lodgeName?.toLowerCase().includes('bukela') ? 'bukelagamelodge' : 'hlosigamelodge';
                             
                             return (
                               <>
@@ -1446,7 +1454,7 @@ export default function RateCalculator() {
                                     </p>
                                     <pre className="p-4 rounded-xl bg-black/60 border border-white/10 text-[11px] font-mono text-emerald-400 leading-relaxed overflow-x-auto">
                                       {isProfitroom ? JSON.stringify({
-                                        propertyId: selectedLodgeResult?.lodgeId ?? "PROFITROOM_LODGE_ID",
+                                        propertyId: resolvedLodgeId,
                                         checkIn: format(startDate, 'yyyy-MM-dd'),
                                         checkOut: format(endDate, 'yyyy-MM-dd'),
                                         adults: adults,

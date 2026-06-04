@@ -5,10 +5,12 @@ import { createHmac } from 'crypto';
 const PROFITROOM_PROPERTIES: Record<string, { hotelId: string; rateCode: string }> = {
   // Hlosi Game Lodge
   '336715': { hotelId: 'hlosigamelodge', rateCode: 'WILDLIFEHERO-CUG' },
+  '415665': { hotelId: 'hlosigamelodge', rateCode: 'WILDLIFEHERO-CUG' },
   'hlosi': { hotelId: 'hlosigamelodge', rateCode: 'WILDLIFEHERO-CUG' },
   
   // Bukela Game Lodge
   '336709': { hotelId: 'bukelagamelodge', rateCode: 'WILDLIFEHERO-CUG' },
+  '354146': { hotelId: 'bukelagamelodge', rateCode: 'WILDLIFEHERO-CUG' },
   'bukela': { hotelId: 'bukelagamelodge', rateCode: 'WILDLIFEHERO-CUG' }
 };
 

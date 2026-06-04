@@ -30,6 +30,7 @@ export interface Lodge {
   updatedAt?: any;
   nightsbridge_id?: string;
   bookingProvider?: 'NightsBridge' | 'ProfitRoom';
+  profitroom_id?: string;
 }
 
 export interface Property {
@@ -41,6 +42,7 @@ export interface Property {
   gps?: any;
   nightsbridge_id?: string;
   bookingProvider?: string;
+  profitroom_id?: string;
   updated_at: string;
 }
 
