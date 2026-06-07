@@ -3,11 +3,14 @@
 import { useMemo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Quote, CompetitorRate } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, where, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, limit, where, getDocs, writeBatch, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { INITIAL_LODGES } from '@/lib/mock-data';
 import {
   Shield,
@@ -19,7 +22,15 @@ import {
   ShieldAlert,
   Loader2,
   Play,
-  Users
+  Users,
+  History,
+  BarChart3,
+  Calendar,
+  Percent,
+  MapPin,
+  CheckCircle2,
+  Wallet,
+  ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MarketIntelligence from '@/components/admin/MarketIntelligence';
@@ -61,6 +72,13 @@ export default function AdminPage() {
   const [dryRunOnly, setDryRunOnly] = useState(true);
   const [cleanupAfterMerge, setCleanupAfterMerge] = useState(false);
   const [syncingProfiles, setSyncingProfiles] = useState(false);
+
+  // Market Trends / Competitor Benchmarking embedded states
+  const [commissionRate, setCommissionRate] = useState<number>(0.18);
+  const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatus, setSyncStatus] = useState("");
 
   const runGoogleSync = async () => {
     setSyncingProfiles(true);
@@ -129,6 +147,91 @@ export default function AdminPage() {
   const ratesQuery = useMemoFirebase(() => db ? query(collection(db, 'competitor_rates'), where('search_params.is_benchmark', '==', true), orderBy('check_in_date', 'asc'), limit(200)) : null, [db]);
   const { data: rawRates = [], loading: loadingRates } = useCollection<CompetitorRate>(ratesQuery);
 
+  const historyQuery = useMemoFirebase(() => {
+    if (!db || !selectedRateId) return null;
+    return query(
+      collection(db, 'competitor_rates', selectedRateId, 'history'),
+      orderBy('scraped_at', 'desc'),
+      limit(10)
+    );
+  }, [db, selectedRateId]);
+  const { data: history } = useCollection<CompetitorRate>(historyQuery);
+
+  const run90DaySync = async () => {
+    if (!db) return;
+    setSyncing(true);
+    setSyncProgress(0);
+    setSyncStatus("Enforcing Demo Standard: 2 Adults, 2 Nights Benchmark...");
+
+    try {
+      for (let i = 0; i < 30; i++) {
+        const stayDate = format(addDays(new Date(2026, 4, 15), i * 2), 'yyyy-MM-dd');
+        setSyncStatus(`Benchmarking Stay Date: ${stayDate}`);
+        
+        const res = await fetch(`/api/market-sync?date=${stayDate}&adults=2&nights=2`);
+        const data = await res.json();
+
+        if (data.snapshot && Array.isArray(data.snapshot)) {
+          for (const item of data.snapshot) {
+            const rateData = {
+              competitor_id: item.source,
+              lodge_name: item.name,
+              check_in_date: stayDate,
+              scraped_at: serverTimestamp(),
+              rate_zar: item.price,
+              room_type: "Standard Benchmark (2 Pax)",
+              is_own_property: item.is_own_property || false,
+              is_verified_total: true,
+              is_pppn: true,
+              search_params: { 
+                adults: 2, 
+                nights: 2, 
+                is_benchmark: true 
+              }
+            };
+
+            const existingQuery = query(
+              collection(db, 'competitor_rates'),
+              where('lodge_name', '==', item.name),
+              where('check_in_date', '==', stayDate),
+              where('search_params.is_benchmark', '==', true)
+            );
+            
+            const existingDocs = await getDocs(existingQuery);
+
+            if (!existingDocs.empty) {
+              const existingDoc = existingDocs.docs[0];
+              const existingData = existingDoc.data();
+              
+              if (existingData.rate_zar !== item.price) {
+                await addDoc(collection(db, 'competitor_rates', existingDoc.id, 'history'), {
+                  ...existingData,
+                  archived_at: serverTimestamp()
+                });
+                await setDoc(doc(db, 'competitor_rates', existingDoc.id), rateData, { merge: true });
+              }
+            } else {
+              const newRef = doc(collection(db, 'competitor_rates'));
+              await setDoc(newRef, rateData);
+              await addDoc(collection(db, 'competitor_rates', newRef.id, 'history'), rateData);
+            }
+          }
+        }
+
+        setSyncProgress(((i + 1) / 30) * 100);
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      setSyncStatus("Intelligence Refreshed.");
+      toast({ title: "Benchmark Complete", description: "PPPN data normalized for 2026." });
+    } catch (error: any) {
+      setSyncStatus("Sync Failed.");
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setTimeout(() => setSyncing(false), 2000);
+    }
+  };
+
   // Compute operational data visibility parameters based on role and active lodge filtering
   const filteredQuotes = useMemo(() => {
     if (activeLodgeFilter === 'all') return quotes;
@@ -136,9 +239,14 @@ export default function AdminPage() {
   }, [quotes, activeLodgeFilter]);
 
   const filteredRates = useMemo(() => {
-    if (activeLodgeFilter === 'all') return rawRates;
-    return rawRates.filter(r => r.lodgeId === activeLodgeFilter || !r.is_own_property);
-  }, [rawRates, activeLodgeFilter]);
+    if (!rawRates) return [];
+    let filtered = [...rawRates];
+    if (activeLodgeFilter !== 'all') {
+      const lodgeName = lodgesList.find(l => l.id === activeLodgeFilter)?.name;
+      filtered = filtered.filter(r => r.lodgeId === activeLodgeFilter || r.lodge_name === lodgeName || !r.is_own_property);
+    }
+    return filtered.sort((a, b) => a.check_in_date.localeCompare(b.check_in_date));
+  }, [rawRates, activeLodgeFilter, lodgesList]);
 
   const runMediaSync = async () => {
     setMediaSyncing(true);
@@ -368,6 +476,161 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {(activeTab === 'competitors' || activeTab === 'velocity') && (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-white/5 pb-6">
+                <div>
+                  <h2 className="text-3xl font-headline font-bold text-white italic tracking-tight">Yield Recovery & Market Parity</h2>
+                  <p className="text-primary font-bold uppercase tracking-[0.3em] text-[10px] mt-1">
+                    Strategic Market Intelligence • {activeLodgeFilter === 'all' ? 'Reserve Wide' : 'Lodge Focus'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* OTA Leakage selector */}
+                  <div className="flex items-center gap-2 bg-white/5 px-4 h-12 rounded-xl border border-white/5">
+                    <Percent className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider mr-2">OTA Leakage</span>
+                    <select
+                      value={commissionRate.toString()}
+                      onChange={(e) => setCommissionRate(parseFloat(e.target.value))}
+                      className="bg-transparent border-none text-xs font-bold text-white focus:outline-none cursor-pointer"
+                    >
+                      <option value="0.15" className="bg-[#111] text-white">15%</option>
+                      <option value="0.18" className="bg-[#111] text-white">18%</option>
+                      <option value="0.20" className="bg-[#111] text-white">20%</option>
+                      <option value="0.25" className="bg-[#111] text-white">25%</option>
+                    </select>
+                  </div>
+                  
+                  {/* Sync Button */}
+                  <Button 
+                    onClick={run90DaySync} 
+                    disabled={syncing} 
+                    className="bg-primary text-black font-black h-12 px-6 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 text-[10px] uppercase tracking-wider"
+                  >
+                    {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Zap className="w-3.5 h-3.5 mr-2" />}
+                    Sync Benchmarks
+                  </Button>
+                </div>
+              </div>
+
+              {syncing && (
+                <Card className="bg-primary border-none p-6 rounded-2xl shadow-xl shadow-primary/10">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] uppercase font-black text-black tracking-widest">Benchmarking Data Points</p>
+                        <p className="text-base font-headline italic text-black">{syncStatus}</p>
+                      </div>
+                      <p className="text-xl font-headline italic text-black">{Math.round(syncProgress)}%</p>
+                    </div>
+                    <Progress value={syncProgress} className="h-1.5 bg-black/10" />
+                  </div>
+                </Card>
+              )}
+
+              <MarketIntelligence 
+                rates={filteredRates || []} 
+                loading={loadingRates} 
+                commissionRate={commissionRate}
+                activeLodge={activeLodgeFilter}
+              />
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                  <Card className="glass-card border-white/5 bg-black/40 rounded-3xl overflow-hidden shadow-xl">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-white/5 p-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg"><Activity className="text-primary w-4 h-4" /></div>
+                        <CardTitle className="text-xl font-headline italic text-white">Live Parity Stream</CardTitle>
+                      </div>
+                      <Badge className="bg-white/5 text-white/60 border-white/10 uppercase text-[9px] font-black px-3 py-1.5">
+                        {filteredRates?.length || 0} Benchmarks Audited
+                      </Badge>
+                    </CardHeader>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/[0.01]">
+                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Date</th>
+                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Property</th>
+                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Rate (PPPN)</th>
+                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Direct Gain</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {loadingRates ? (
+                            <tr><td colSpan={4} className="px-6 py-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></td></tr>
+                          ) : filteredRates?.length === 0 ? (
+                            <tr><td colSpan={4} className="px-6 py-12 text-center text-white/20 italic text-sm">No benchmark data found. Click 'Sync Benchmarks' to populate.</td></tr>
+                          ) : filteredRates?.map((rate) => (
+                            <tr 
+                              key={rate.id} 
+                              onClick={() => setSelectedRateId(rate.id || null)}
+                              className={`hover:bg-white/5 cursor-pointer transition-colors group ${selectedRateId === rate.id ? 'bg-primary/5' : ''}`}
+                            >
+                              <td className="px-6 py-4">
+                                 <span className="text-xs font-bold text-white">{rate.check_in_date}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                 <div className="flex items-center gap-2">
+                                   <div className={`w-1.5 h-1.5 rounded-full ${rate.is_own_property ? 'bg-primary shadow-[0_0_8px_primary]' : 'bg-white/20'}`} />
+                                   <span className={`text-xs font-bold ${rate.is_own_property ? 'text-primary' : 'text-white'}`}>{rate.lodge_name}</span>
+                                 </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                 <span className="text-xs font-black text-white">R{rate.rate_zar?.toLocaleString()}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                 <div className="flex items-center gap-1.5">
+                                   <TrendingUp className="w-3 h-3 text-emerald-400" />
+                                   <span className="text-xs font-bold text-emerald-400">
+                                     +R{Math.round(rate.rate_zar * (commissionRate - 0.05)).toLocaleString()}
+                                   </span>
+                                 </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <Card className="glass-card border-white/5 bg-black/40 rounded-3xl overflow-hidden sticky top-6">
+                    <div className="h-1 bg-primary" />
+                    <CardHeader className="p-6 pb-2">
+                      <CardTitle className="text-base font-headline italic text-white flex items-center gap-2">
+                        <History className="w-4 h-4 text-primary" /> Rate Audit
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0 space-y-4">
+                      {!selectedRateId ? (
+                        <div className="py-12 text-center space-y-3">
+                          <Activity className="w-8 h-8 mx-auto text-white/5" />
+                          <p className="text-[10px] text-white/40 italic">Select a point to view yield history</p>
+                        </div>
+                      ) : (
+                         <div className="space-y-4">
+                           {history?.map((entry, idx) => (
+                             <div key={idx} className="flex gap-3 relative pl-4 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-px before:bg-white/10 last:before:hidden">
+                               <div className="absolute left-[-2px] top-1.5 w-1 h-1 rounded-full bg-primary" />
+                               <div>
+                                 <p className="text-xs font-black text-white">R{entry.rate_zar?.toLocaleString()}</p>
+                                 <p className="text-[9px] text-white/40 font-bold uppercase">{entry.scraped_at?.seconds ? format(new Date(entry.scraped_at.seconds * 1000), 'MMM d, HH:mm') : 'Current'}</p>
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
           )}
         </div>

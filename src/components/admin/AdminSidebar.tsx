@@ -18,7 +18,8 @@ import {
   Building2,
   Sliders,
   TrendingUp,
-  ShieldAlert
+  ShieldAlert,
+  Activity
 } from "lucide-react"
 
 import {
@@ -152,10 +153,28 @@ export function AdminSidebar({
 
       <SidebarContent className="p-4 space-y-6 bg-[#0c0c0c]">
 
+        {/* Hub 0: Activity (Google Analytics) */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-white/20 tracking-[0.2em] mb-3 px-2">
+            Activity
+          </SidebarGroupLabel>
+          <SidebarMenu className="gap-1">
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className="h-10 text-white/50 hover:text-white px-3 w-full justify-start gap-3">
+                <a href="https://analytics.google.com/" target="_blank" rel="noopener noreferrer">
+                  <Activity className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span className="text-xs uppercase tracking-wider font-bold">Google Analytics</span>
+                  <ExternalLink className="w-3 h-3 ml-auto opacity-30 flex-shrink-0" />
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
         {/* Hub 1: Core Administration Control */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-white/20 tracking-[0.2em] mb-3 px-2">
-            {actualSuperAdmin ? "System Administration" : "Lodge Administration"}
+            Administration
           </SidebarGroupLabel>
           <SidebarMenu className="gap-1">
             <SidebarMenuItem>
@@ -263,7 +282,7 @@ export function AdminSidebar({
         {/* Hub 2: Market Intelligence Layer */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-emerald-500/40 tracking-[0.2em] mb-3 px-2">
-            Market Intelligence
+            Intelligence
           </SidebarGroupLabel>
           <SidebarMenu className="gap-1">
             <SidebarMenuItem>
@@ -304,7 +323,7 @@ export function AdminSidebar({
         {actualSuperAdmin && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[9px] font-mono uppercase font-bold text-primary/40 tracking-[0.2em] mb-3 px-2">
-              Ecosystem Control
+              System Controls
             </SidebarGroupLabel>
             <SidebarMenu className="gap-1">
               <SidebarMenuItem>
